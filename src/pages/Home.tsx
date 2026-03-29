@@ -10,12 +10,12 @@ const stats = [
 
 export default function Home() {
     return (
-        <div className="h-[100dvh] relative bg-[#0d1117] flex flex-col overflow-hidden">
+        <div className="h-screen relative bg-[#0d1117] flex flex-col lg:overflow-hidden">
             {/* Background depth layers - matching Courses page */}
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)] pointer-events-none" />
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)] pointer-events-none" />
 
-            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-4 md:px-12 lg:pl-44 lg:pr-12 pt-4">
+            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-4 md:px-12 lg:pl-32 lg:pr-12 pt-2 md:pt-4">
 
                 {/* Badge */}
                 <motion.div
@@ -52,7 +52,7 @@ export default function Home() {
                     transition={{ duration: 0.6, delay: 0.1 }}
                     className="max-w-5xl mx-auto"
                 >
-                    <h1 className="text-4xl md:text-5xl lg:text-5xl font-black text-white mb-2 lg:mb-2 leading-tight flex flex-col items-center">
+                    <h1 className="text-4xl md:text-5xl lg:text-5xl font-black text-white mb-1 lg:mb-1 leading-tight flex flex-col items-center">
                         <span>Build Your Career with</span>
                         <span className="whitespace-nowrap mt-1">
                             <span className="text-[#2281c3]">Excel</span> <span className="text-[#d74345]">Computers 🚀</span>
@@ -79,8 +79,8 @@ export default function Home() {
             </div>
 
             {/* Stats Section - Fixed at bottom */}
-            <div className="container mx-auto px-6 md:px-12 lg:pl-44 lg:pr-12 relative z-10 pb-6 lg:pb-8 max-w-5xl shrink-0">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-8 max-w-4xl mx-auto">
+            <div className="container mx-auto px-6 md:px-12 lg:pl-32 lg:pr-12 relative z-10 pb-4 lg:pb-6 max-w-5xl shrink-0">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-6 max-w-4xl mx-auto">
                     {stats.map((stat, index) => {
                         const Icon = stat.icon;
                         return (

@@ -35,7 +35,7 @@ export default function CourseDetail() {
     const careerOutcomes = 'careerOutcomes' in course ? (course.careerOutcomes as string[]) : [];
 
     return (
-        <div className="min-h-[100dvh] bg-white pb-20">
+        <div className="min-h-screen bg-white pb-20">
             {/* 2. HERO SECTION (HOOK) */}
             <div className={cn("pt-20 pb-24 relative overflow-hidden bg-gradient-to-br", course.color)}>
                 {/* Background depth layers */}
@@ -45,7 +45,7 @@ export default function CourseDetail() {
                 {/* Decorative glow orb */}
                 <div className="absolute top-10 right-[20%] w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
 
-                <div className="mx-auto w-full max-w-6xl px-6 md:px-12 lg:pl-44 relative z-10 text-center">
+                <div className="mx-auto w-full max-w-7xl px-6 md:px-12 lg:pl-32 lg:pr-12 relative z-10 text-center">
                     {/* Back button — premium pill style */}
                     <div className="flex justify-center mb-8">
                         <Link to="/courses" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 px-5 py-2.5 rounded-full transition-all group shadow-lg shadow-black/20">
@@ -132,7 +132,7 @@ export default function CourseDetail() {
 
 
             {/* 1. TOP STRIP (STATIC OVERLAP) */}
-            <div className="w-full relative -mt-16 container mx-auto px-6 md:px-12 lg:pl-44 z-10">
+            <div className="w-full relative-mt-16 container mx-auto px-6 md:px-12 lg:pl-32 lg:pr-12 z-10">
                 <div className="w-full max-w-5xl mx-auto px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between py-6 md:py-5 rounded-[2rem] bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 gap-y-6 md:gap-y-8">
                     <div className="w-1/2 md:flex-1 flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -171,13 +171,13 @@ export default function CourseDetail() {
             </div>
 
             <div className="w-full max-w-[1600px] mx-auto px-6 mt-12">
-                <div className="flex flex-col lg:flex-row items-start justify-center gap-12 lg:gap-20 lg:pl-44">
+                <div className="flex flex-col lg:flex-row items-start justify-center gap-12 lg:gap-20 lg:pl-32 lg:pr-12">
                     
                     {/* LEFT SPACER (Slight offset from nav menu, content expands left) */}
                     <div className="hidden lg:block w-full lg:w-[80px] shrink-0" />
 
                     {/* MAIN CONTENT AREA */}
-                    <div className="flex-1 min-w-0 space-y-16">
+                    <div className="flex-1 w-full max-w-5xl space-y-16">
                         
                         {/* 3. COURSE OVERVIEW */}
                         <section>
@@ -185,7 +185,7 @@ export default function CourseDetail() {
                                 <Rocket className="w-3.5 h-3.5" /> Course Overview
                             </div>
                             <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-6">Master the Fundamentals</h2>
-                            <p className="text-lg md:text-xl text-slate-600 leading-[1.6] font-medium max-w-5xl">
+                            <p className="text-lg md:text-xl text-slate-600 leading-[1.6] font-medium max-w-full">
                                 {overview}
                             </p>
                         </section>
@@ -211,7 +211,7 @@ export default function CourseDetail() {
 
                         {/* 5. WHO SHOULD JOIN */}
                         <section className="bg-slate-50 rounded-[2rem] p-8 md:p-12 border border-slate-100">
-                             <div className="max-w-5xl">
+                             <div className="max-w-full">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 rounded-lg text-blue-600 text-[10px] font-black uppercase tracking-widest mb-4">
                                     <Users className="w-3.5 h-3.5" /> Target Audience
                                 </div>

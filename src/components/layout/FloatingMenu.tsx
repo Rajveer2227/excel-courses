@@ -45,7 +45,7 @@ export default function FloatingMenu() {
     return (
         <>
             {/* Desktop Side Navigation */}
-            <div className="hidden lg:flex flex-col items-center justify-center fixed left-6 inset-y-0 z-50 pointer-events-none">
+            <div className="hidden lg:flex flex-col items-center justify-center fixed left-4 inset-y-0 z-50 pointer-events-none">
                 <motion.nav
                     initial={{ x: -100, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
