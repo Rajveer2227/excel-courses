@@ -45,7 +45,7 @@ export default function CourseDetail() {
                 {/* Decorative glow orb */}
                 <div className="absolute top-10 right-[20%] w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
 
-                <div className="mx-auto w-full max-w-4xl px-6 relative z-10 text-center">
+                <div className="mx-auto w-full max-w-4xl px-6 md:px-12 relative z-10 text-center">
                     {/* Back button — premium pill style */}
                     <div className="flex justify-center mb-8">
                         <Link to="/courses" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 px-5 py-2.5 rounded-full transition-all group shadow-lg shadow-black/20">
@@ -56,7 +56,7 @@ export default function CourseDetail() {
 
                     <div className="max-w-4xl mx-auto">
                         {/* Feature Pills — colorful & premium */}
-                        <div className="flex flex-wrap justify-center gap-3 mb-10">
+                        <div className="flex flex-wrap justify-center gap-3 md:gap-4 mb-10">
                             {highlights.map((feature, i) => (
                                 <motion.span
                                     key={i}
@@ -132,8 +132,8 @@ export default function CourseDetail() {
 
 
             {/* 1. TOP STRIP (STATIC OVERLAP) */}
-            <div className="w-full relative -mt-16 container mx-auto px-6 z-10">
-                <div className="w-full max-w-5xl mx-auto px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between py-6 md:py-5 rounded-[2rem] bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 gap-y-6">
+            <div className="w-full relative -mt-16 container mx-auto px-6 md:px-12 z-10">
+                <div className="w-full max-w-5xl mx-auto px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between py-6 md:py-5 rounded-[2rem] bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 gap-y-6 md:gap-y-8">
                     <div className="w-1/2 md:flex-1 flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
                             <Clock className="w-5 h-5 text-blue-400" />

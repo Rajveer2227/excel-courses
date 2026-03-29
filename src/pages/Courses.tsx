@@ -24,7 +24,7 @@ export default function Courses() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{backgroundImage:'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize:'28px 28px'}} />
-            <div className="container mx-auto px-6 lg:pl-44 lg:pr-8 max-w-7xl relative z-10">
+            <div className="container mx-auto px-6 md:px-12 lg:pl-44 lg:pr-8 max-w-7xl relative z-10">
 
                 {/* Header Section */}
                 <div className="mb-12 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
@@ -50,7 +50,7 @@ export default function Courses() {
                     <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="relative w-full lg:w-[450px] group"
+                        className="relative w-full md:max-w-2xl lg:w-[450px] group"
                     >
                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none z-10">
                             <Search className="w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
@@ -89,7 +89,7 @@ export default function Courses() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="flex flex-wrap gap-3 mt-12 mb-16"
+                    className="flex flex-wrap gap-3 md:gap-4 mt-12 mb-16"
                 >
                     {courseCategories.map((cat) => (
                         <button

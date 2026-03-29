@@ -150,7 +150,7 @@ export default function Compare() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-            <div className="relative z-10 flex flex-col h-full pt-16 lg:pt-16 pb-8 px-2 sm:px-4 lg:pl-44 lg:pr-8 max-w-6xl mx-auto w-full">
+            <div className="relative z-10 flex flex-col h-full pt-16 lg:pt-16 pb-8 px-2 sm:px-4 md:px-12 lg:pl-44 lg:pr-8 max-w-6xl mx-auto w-full">
 
                 {/* ── Header ── */}
                 <motion.div
@@ -165,7 +165,7 @@ export default function Compare() {
                 </motion.div>
 
                 {/* ── Two Column Layout ── */}
-                <div className="flex-1 grid grid-cols-[1fr_auto_1fr] gap-3 min-h-0">
+                <div className="flex-1 grid grid-cols-[1fr_auto_1fr] gap-3 md:gap-6 min-h-0">
 
                     {/* ── Course A Card ── */}
                     <motion.div

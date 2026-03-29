@@ -89,8 +89,8 @@ export default function FloatingMenu() {
                 <button 
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={cn(
-                        "fixed right-4 z-[60] p-3 rounded-full backdrop-blur-xl border shadow-2xl transition-all duration-300 text-white", 
-                        isScrolled ? "top-4 bg-slate-900/95 border-slate-700" : "top-6 bg-slate-900/90 border-slate-700"
+                        "fixed right-4 md:right-8 z-[60] p-3 rounded-full backdrop-blur-xl border shadow-2xl transition-all duration-300 text-white", 
+                        isScrolled ? "top-4 md:top-8 bg-slate-900/95 border-slate-700" : "top-6 md:top-8 bg-slate-900/90 border-slate-700"
                     )}
                 >
                     {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
