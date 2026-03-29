@@ -45,12 +45,12 @@ export default function FloatingMenu() {
     return (
         <>
             {/* Desktop Side Navigation */}
-            <div className="hidden md:flex flex-col items-center justify-center fixed left-4 inset-y-0 z-50 pointer-events-none">
-                <motion.nav
-                    initial={{ x: -100, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    className="flex flex-col items-center justify-center py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl pointer-events-auto"
-                >
+            <motion.nav
+                initial={{ x: -100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+                className="hidden md:flex flex-col items-center justify-center fixed left-4 top-1/2 -translate-y-1/2 z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
+            >
                 <div className="flex flex-col gap-8">
                     {navItems.map((item) => {
                         const Icon = item.icon;
@@ -74,7 +74,6 @@ export default function FloatingMenu() {
                                     />
                                 )}
                                 <Icon className={cn("w-7 h-7 relative z-10", isActive ? "text-white" : "")} strokeWidth={2.5} />
-
                                 {/* Tooltip */}
                                 <span className="absolute left-full ml-6 px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap shadow-2xl">
                                     {item.label}
@@ -83,8 +82,7 @@ export default function FloatingMenu() {
                         );
                     })}
                 </div>
-                </motion.nav>
-            </div>
+            </motion.nav>
 
             {/* Mobile/Tablet Hamburger Navigation (Only on mobile-small screens) */}
             <div className="md:hidden">
