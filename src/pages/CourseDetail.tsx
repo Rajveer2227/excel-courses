@@ -45,7 +45,7 @@ export default function CourseDetail() {
                 {/* Decorative glow orb */}
                 <div className="absolute top-10 right-[20%] w-64 h-64 rounded-full bg-white/5 blur-3xl pointer-events-none" />
 
-                <div className="mx-auto w-full max-w-7xl px-6 lg:pl-24 lg:pr-8 relative z-10 text-center">
+                <div className="mx-auto w-full max-w-7xl px-6 lg:pl-28 lg:pr-8 relative z-10 text-center">
                     {/* Back button — premium pill style */}
                     <div className="flex justify-center mb-8">
                         <Link to="/courses" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 px-5 py-2.5 rounded-full transition-all group shadow-lg shadow-black/20">
@@ -132,7 +132,7 @@ export default function CourseDetail() {
 
 
             {/* 1. TOP STRIP (STATIC OVERLAP) */}
-            <div className="w-full relative -mt-16 container mx-auto px-6 lg:pl-24 lg:pr-8 z-10">
+            <div className="w-full relative -mt-16 container mx-auto px-6 lg:pl-28 lg:pr-8 z-10">
                 <div className="w-full max-w-5xl mx-auto px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between py-6 md:py-5 rounded-[2rem] bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 gap-y-6 md:gap-y-8">
                     <div className="w-1/2 md:flex-1 flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -171,7 +171,7 @@ export default function CourseDetail() {
             </div>
 
             <div className="w-full max-w-[1600px] mx-auto px-6 mt-12">
-                <div className="flex flex-col lg:flex-row items-start gap-10 lg:pl-24 lg:pr-8">
+                <div className="flex flex-col lg:flex-row items-start gap-8 lg:pl-28 lg:pr-8">
                     
                     {/* Left spacer - desktop only */}
                     <div className="hidden lg:block w-[60px] shrink-0" />
@@ -253,7 +253,7 @@ export default function CourseDetail() {
                     </div>
 
                     {/* RIGHT COLUMN: Quick Decision Panel */}
-                    <div className="w-full lg:w-[400px] shrink-0 lg:sticky lg:top-24 h-fit">
+                    <div className="w-full lg:w-[320px] shrink-0 lg:sticky lg:top-24 h-fit">
                         <div className="bg-white border-2 border-slate-100 p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50">
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-lg text-primary text-[10px] font-black uppercase tracking-widest mb-6">
                                 <Zap className="w-3.5 h-3.5" /> Quick Decision Panel

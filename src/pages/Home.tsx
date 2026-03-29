@@ -10,12 +10,12 @@ const stats = [
 
 export default function Home() {
     return (
-        <div className="min-h-screen relative bg-[#0d1117] flex flex-col">
+        <div className="min-h-screen lg:h-screen relative bg-[#0d1117] flex flex-col lg:overflow-hidden">
             {/* Background depth layers - matching Courses page */}
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)] pointer-events-none" />
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)] pointer-events-none" />
 
-            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-6 lg:pl-24 lg:pr-8">
+            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-6 lg:pl-28 lg:pr-8">
 
                 {/* Badge */}
                 <motion.div
@@ -79,7 +79,7 @@ export default function Home() {
             </div>
 
             {/* Stats Section - Fixed at bottom */}
-            <div className="container mx-auto px-6 lg:pl-24 lg:pr-8 relative z-10 pb-8 max-w-5xl shrink-0">
+            <div className="container mx-auto px-6 lg:pl-28 lg:pr-8 relative z-10 pb-6 max-w-5xl shrink-0">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     {stats.map((stat, index) => {
                         const Icon = stat.icon;
