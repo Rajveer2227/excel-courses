@@ -3,7 +3,7 @@ import FloatingMenu from './FloatingMenu.tsx';
 
 const Layout = () => {
     return (
-        <div className="min-h-screen w-full relative bg-slate-50 flex">
+        <div className="min-h-[100dvh] w-full relative bg-slate-50 flex">
             <main className="flex-1 w-full relative">
                 <Outlet />
             </main>
