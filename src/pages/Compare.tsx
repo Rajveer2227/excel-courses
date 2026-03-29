@@ -144,13 +144,13 @@ export default function Compare() {
     if (!c1 || !c2) return null;
 
     return (
-        <div className="min-h-screen bg-[#0d1117] flex flex-col overflow-y-auto relative overflow-x-hidden">
+        <div className="min-h-screen bg-[#0d1117] flex flex-col relative">
             {/* Background depth layers */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-            <div className="relative z-10 flex flex-col h-full pt-16 pb-8 px-2 sm:px-4 md:px-8 md:pl-28 lg:pr-12 max-w-7xl mx-auto w-full">
+            <div className="relative z-10 flex flex-col pt-16 pb-8 px-4 md:px-12 md:pl-28 lg:pr-12 max-w-7xl mx-auto w-full">
 
                 {/* ── Header ── */}
                 <motion.div

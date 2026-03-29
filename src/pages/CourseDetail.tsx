@@ -171,10 +171,10 @@ export default function CourseDetail() {
             </div>
 
             <div className="w-full max-w-[1600px] mx-auto px-6 mt-12">
-                <div className="flex flex-col md:flex-row items-start justify-center gap-12 lg:gap-20 md:pl-28 lg:pr-12">
+                <div className="flex flex-col md:flex-row items-start gap-10 md:pl-28 lg:pr-12">
                     
-                    {/* LEFT SPACER (Slight offset from nav menu, content expands left) */}
-                    <div className="hidden lg:block w-full lg:w-[80px] shrink-0" />
+                    {/* LEFT SPACER — only on large screens, 80px gutter for nav */}
+                    <div className="hidden lg:block w-[80px] shrink-0" />
 
                     {/* MAIN CONTENT AREA */}
                     <div className="flex-1 min-w-0 space-y-16">
@@ -253,7 +253,7 @@ export default function CourseDetail() {
                     </div>
 
                     {/* RIGHT COLUMN: Quick Decision Panel */}
-                    <div className="w-full md:w-[380px] lg:w-[400px] md:sticky md:top-24 h-fit shrink-0">
+                    <div className="w-full md:w-[380px] lg:w-[420px] shrink-0 md:sticky md:top-24 h-fit">
                         <div className="bg-white border-2 border-slate-100 p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50">
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-lg text-primary text-[10px] font-black uppercase tracking-widest mb-6">
                                 <Zap className="w-3.5 h-3.5" /> Quick Decision Panel

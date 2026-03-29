@@ -4,19 +4,8 @@
 html, body {
   scroll-behavior: smooth;
   overflow-x: hidden;
-  position: relative;
   width: 100%;
   -webkit-overflow-scrolling: touch;
-}
-
-/* GPU-compositing for all fixed elements — prevents vertical jitter during scroll */
-*[style*="position: fixed"],
-.fixed {
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  will-change: transform;
 }
 
 @theme {

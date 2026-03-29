@@ -48,8 +48,7 @@ export default function FloatingMenu() {
             <motion.nav
                 initial={{ x: -100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                style={{ willChange: 'transform', transform: 'translateZ(0)' }}
-                className="hidden md:flex flex-col items-center justify-center fixed left-4 top-1/2 -translate-y-1/2 z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
+                className="hidden md:flex flex-col items-center justify-center fixed left-4 inset-y-0 my-auto h-fit z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
             >
                 <div className="flex flex-col gap-8">
                     {navItems.map((item) => {
