@@ -48,7 +48,7 @@ export default function FloatingMenu() {
             <motion.nav
                 initial={{ x: -100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                className="hidden lg:flex flex-col items-center justify-center fixed left-8 top-1/2 -translate-y-1/2 z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
+                className="hidden lg:flex flex-col items-center justify-center fixed left-10 top-1/2 -translate-y-1/2 z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
             >
                 <div className="flex flex-col gap-8">
                     {navItems.map((item) => {
