@@ -45,11 +45,12 @@ export default function FloatingMenu() {
     return (
         <>
             {/* Desktop Side Navigation */}
-            <motion.nav
-                initial={{ x: -100, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                className="hidden lg:flex flex-col items-center justify-center fixed left-10 top-1/2 -translate-y-1/2 z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
-            >
+            <div className="hidden lg:flex flex-col items-center justify-center fixed left-6 inset-y-0 z-50 pointer-events-none">
+                <motion.nav
+                    initial={{ x: -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    className="flex flex-col items-center justify-center py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl pointer-events-auto"
+                >
                 <div className="flex flex-col gap-8">
                     {navItems.map((item) => {
                         const Icon = item.icon;
@@ -82,7 +83,8 @@ export default function FloatingMenu() {
                         );
                     })}
                 </div>
-            </motion.nav>
+                </motion.nav>
+            </div>
 
             {/* Mobile/Tablet Hamburger Navigation */}
             <div className="lg:hidden">
