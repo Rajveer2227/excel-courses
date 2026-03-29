@@ -1,0 +1,55 @@
+/* index.css */
+@import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+}
+
+@theme {
+  --color-primary: #2384C6;
+  --color-primary-dark: #1A6293;
+  --color-accent: #D94444;
+  --color-accent-dark: #A63434;
+  --color-bg-light: #F8FAFC;
+  --color-bg-dark: #0F172A;
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
+  }
+  .glass-dark {
+    @apply bg-slate-900/70 backdrop-blur-md border border-slate-700/50 shadow-xl;
+  }
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-500;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+}
+
+body {
+  @apply bg-bg-light text-slate-800 font-sans antialiased selection:bg-primary/20 selection:text-primary-dark;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-heading tracking-tight;
+}
+@layer utilities {
+  .animate-shimmer-slow {
+    animation: shimmer 4s infinite linear;
+  }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(0%) skewX(-15deg); }
+  100% { transform: translateX(-100%) skewX(-15deg); }
+}
