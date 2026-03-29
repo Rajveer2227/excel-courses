@@ -18,6 +18,9 @@ html, body {
   
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-heading: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Force desktop layout on OnePlus Pad Go landscape (~963px CSS pixels at 2.5x DPR) */
+  --breakpoint-lg: 900px;
 }
 
 @layer utilities {

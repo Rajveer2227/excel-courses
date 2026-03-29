@@ -24,7 +24,7 @@ export default function Courses() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{backgroundImage:'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize:'28px 28px'}} />
-            <div className="container mx-auto px-6 md:px-12 md:pl-28 lg:pr-12 max-w-7xl relative z-10">
+            <div className="container mx-auto px-6 lg:pl-24 lg:pr-8 max-w-7xl relative z-10">
 
                 {/* Header Section */}
                 <div className="mb-12 flex flex-col lg:flex-row lg:items-end justify-between gap-8">

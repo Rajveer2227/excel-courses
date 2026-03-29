@@ -48,7 +48,7 @@ export default function FloatingMenu() {
             <motion.nav
                 initial={{ x: -100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                className="hidden md:flex flex-col items-center justify-center fixed left-4 inset-y-0 my-auto h-fit z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
+                className="hidden lg:flex flex-col items-center justify-center fixed left-4 inset-y-0 my-auto h-fit z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
             >
                 <div className="flex flex-col gap-8">
                     {navItems.map((item) => {
@@ -83,8 +83,8 @@ export default function FloatingMenu() {
                 </div>
             </motion.nav>
 
-            {/* Mobile/Tablet Hamburger Navigation (Only on mobile-small screens) */}
-            <div className="md:hidden">
+            {/* Mobile hamburger — only below lg (900px), i.e. portrait & small devices */}
+            <div className="lg:hidden">
                 <button 
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={cn(
