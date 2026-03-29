@@ -45,7 +45,7 @@ export default function FloatingMenu() {
     return (
         <>
             {/* Desktop Side Navigation */}
-            <div className="hidden lg:flex flex-col items-center justify-center fixed left-4 inset-y-0 z-50 pointer-events-none">
+            <div className="hidden md:flex flex-col items-center justify-center fixed left-4 inset-y-0 z-50 pointer-events-none">
                 <motion.nav
                     initial={{ x: -100, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
@@ -86,8 +86,8 @@ export default function FloatingMenu() {
                 </motion.nav>
             </div>
 
-            {/* Mobile/Tablet Hamburger Navigation */}
-            <div className="lg:hidden">
+            {/* Mobile/Tablet Hamburger Navigation (Only on mobile-small screens) */}
+            <div className="md:hidden">
                 <button 
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={cn(
