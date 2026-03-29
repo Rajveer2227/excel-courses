@@ -15,7 +15,7 @@ export default function Home() {
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)] pointer-events-none" />
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)] pointer-events-none" />
 
-            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-4 md:px-6 lg:pl-32 lg:pr-8 pt-10">
+            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-4 md:px-6 lg:pl-32 lg:pr-8 pt-6">
 
                 {/* Badge */}
                 <motion.div
@@ -39,7 +39,7 @@ export default function Home() {
                             ease: 'easeInOut',
                         },
                     }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-xl mb-6"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-xl mb-4"
                 >
                     <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
                     <span className="text-sm font-semibold text-slate-200 tracking-wide uppercase">#1 Computer Institute in Kolhapur</span>
@@ -52,13 +52,13 @@ export default function Home() {
                     transition={{ duration: 0.6, delay: 0.1 }}
                     className="max-w-5xl mx-auto"
                 >
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-6 leading-tight flex flex-col items-center">
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-4 leading-tight flex flex-col items-center">
                         <span>Build Your Career with</span>
                         <span className="whitespace-nowrap mt-1">
                             <span className="text-[#2281c3]">Excel</span> <span className="text-[#d74345]">Computers 🚀</span>
                         </span>
                     </h1>
-                    <p className="text-lg md:text-xl lg:text-2xl text-slate-300 mb-10 font-medium max-w-3xl mx-auto px-4">
+                    <p className="text-lg md:text-xl lg:text-2xl text-slate-300 mb-6 font-medium max-w-3xl mx-auto px-4">
                         25+ Years of Excellence in IT Training. Transform your career with industry-oriented courses.
                     </p>
 
@@ -79,7 +79,7 @@ export default function Home() {
             </div>
 
             {/* Stats Section - Fixed at bottom */}
-            <div className="container mx-auto px-6 lg:pl-32 lg:pr-8 relative z-10 pb-8 max-w-5xl shrink-0">
+            <div className="container mx-auto px-6 lg:pl-32 lg:pr-8 relative z-10 pb-10 max-w-5xl shrink-0">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     {stats.map((stat, index) => {
                         const Icon = stat.icon;
@@ -112,7 +112,7 @@ export default function Home() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.6, duration: 0.5 }}
-                    className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4 text-slate-500"
+                    className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-4 text-slate-500"
                 >
                     <a href="https://instagram.com/excelcomputerskolhapur" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-pink-500 transition-colors group">
                         <Instagram className="w-4 h-4" />
