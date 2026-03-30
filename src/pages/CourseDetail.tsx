@@ -16,7 +16,7 @@ export default function CourseDetail() {
 
     if (!course) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 py-20">
                 <div className="text-center">
                     <h2 className="text-2xl font-bold mb-4 text-slate-800">Course not found</h2>
                     <Link to="/courses" className="text-primary hover:underline font-bold">Return to Courses</Link>
@@ -35,7 +35,7 @@ export default function CourseDetail() {
     const careerOutcomes = 'careerOutcomes' in course ? (course.careerOutcomes as string[]) : [];
 
     return (
-        <div className="min-h-screen bg-white pb-20">
+        <div className="min-h-screen w-full bg-white pb-20">
             {/* 2. HERO SECTION (HOOK) */}
             <div className={cn("pt-20 pb-24 relative overflow-hidden bg-gradient-to-br", course.color)}>
                 {/* Background depth layers */}

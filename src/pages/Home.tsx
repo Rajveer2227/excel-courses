@@ -10,7 +10,7 @@ const stats = [
 
 export default function Home() {
     return (
-        <div className="min-h-screen lg:h-screen relative bg-[#0d1117] flex flex-col lg:overflow-hidden">
+        <div className="min-h-screen w-full relative bg-[#0d1117] flex flex-col pt-20 pb-12">
             {/* Background depth layers - matching Courses page */}
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)] pointer-events-none" />
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)] pointer-events-none" />

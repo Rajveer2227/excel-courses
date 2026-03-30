@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock, IndianRupee, Briefcase, Award, Zap,
@@ -127,30 +127,19 @@ export default function Compare() {
     const [course1, setCourse1] = useState(defaultC1);
     const [course2, setCourse2] = useState(defaultC2);
 
-    const scrollRef1 = useRef<HTMLDivElement>(null);
-    const scrollRef2 = useRef<HTMLDivElement>(null);
-
-    const syncScroll = (active: 'c1' | 'c2') => {
-        const source = active === 'c1' ? scrollRef1.current : scrollRef2.current;
-        const target = active === 'c1' ? scrollRef2.current : scrollRef1.current;
-        if (source && target) {
-            target.scrollTop = source.scrollTop;
-        }
-    };
-
     const c1 = courses.find(c => c.id === course1) as Course | undefined;
     const c2 = courses.find(c => c.id === course2) as Course | undefined;
 
     if (!c1 || !c2) return null;
 
     return (
-        <div className="min-h-screen lg:h-screen bg-[#0d1117] flex flex-col relative lg:overflow-hidden">
+        <div className="min-h-screen w-full bg-[#0d1117] flex flex-col relative">
             {/* Background depth layers */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-            <div className="relative z-10 flex flex-col h-full pt-16 pb-6 px-6 lg:pl-28 lg:pr-8 max-w-7xl mx-auto w-full">
+            <div className="relative z-10 flex flex-col pt-16 pb-20 px-6 lg:pl-28 lg:pr-8 max-w-7xl mx-auto w-full">
 
                 {/* ── Header ── */}
                 <motion.div
@@ -200,12 +189,7 @@ export default function Compare() {
                             </motion.div>
                         </AnimatePresence>
 
-                        {/* Feature Rows */}
-                        <div 
-                            ref={scrollRef1}
-                            onScroll={() => syncScroll('c1')}
-                            className="flex-1 overflow-y-auto flex flex-col divide-y divide-white/5 scrollbar-hide"
-                        >
+                        <div className="flex flex-col divide-y divide-white/5">
                             {rows.map((row, i) => {
                                 const Icon = row.icon;
                                 const val = row.get(c1);
@@ -308,12 +292,7 @@ export default function Compare() {
                             </motion.div>
                         </AnimatePresence>
 
-                        {/* Feature Rows */}
-                        <div 
-                            ref={scrollRef2}
-                            onScroll={() => syncScroll('c2')}
-                            className="flex-1 overflow-y-auto flex flex-col divide-y divide-white/5 scrollbar-hide"
-                        >
+                        <div className="flex flex-col divide-y divide-white/5">
                             {rows.map((row, i) => {
                                 const Icon = row.icon;
                                 const val = row.get(c2);

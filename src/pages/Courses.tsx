@@ -19,7 +19,7 @@ export default function Courses() {
     });
 
     return (
-        <div className="min-h-screen bg-[#0d1117] pt-24 pb-32 relative">
+        <div className="min-h-screen w-full bg-[#0d1117] pt-24 pb-32 relative">
             {/* Background depth layers */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
