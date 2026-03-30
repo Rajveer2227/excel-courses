@@ -1,7 +1,9 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import ScrollToTop from './components/layout/ScrollToTop';
+import IntroOverlay from './components/common/IntroOverlay';
+import { AnimatePresence, motion } from 'framer-motion';
 
 // Lazy load page components for performance optimization
 const Home = lazy(() => import('./pages/Home'));
@@ -21,21 +23,47 @@ const LoadingFallback = () => (
 );
 
 function App() {
+  const [showIntro, setShowIntro] = useState(() => {
+    // Check if intro has already been seen in this session
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem('hasSeenIntro');
+    }
+    return true;
+  });
+
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+    sessionStorage.setItem('hasSeenIntro', 'true');
+  };
+
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Suspense fallback={<LoadingFallback />}>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="courses" element={<Courses />} />
-            <Route path="courses/:id" element={<CourseDetail />} />
-            <Route path="compare" element={<Compare />} />
-          </Route>
-          {/* Presentation mode typically doesn't need the floating menu, so it's outside the standard layout or handled inside Layout */}
-          <Route path="/presentation" element={<Presentation />} />
-        </Routes>
-      </Suspense>
+      
+      <AnimatePresence mode="wait">
+        {showIntro ? (
+          <IntroOverlay key="intro" onComplete={handleIntroComplete} />
+        ) : (
+          <motion.div
+            key="content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Home />} />
+                  <Route path="courses" element={<Courses />} />
+                  <Route path="courses/:id" element={<CourseDetail />} />
+                  <Route path="compare" element={<Compare />} />
+                </Route>
+                <Route path="/presentation" element={<Presentation />} />
+              </Routes>
+            </Suspense>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </BrowserRouter>
   );
 }

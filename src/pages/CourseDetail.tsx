@@ -315,15 +315,15 @@ export default function CourseDetail() {
                     </div>
 
                     {/* RIGHT COLUMN: Quick Decision Panel */}
-                    <div className="w-full lg:w-[280px] xl:w-[320px] shrink-0 lg:sticky lg:top-24 h-fit max-h-[calc(100vh-theme(spacing.32))] overflow-y-auto hide-scrollbar">
+                    <div className="w-full lg:w-[280px] xl:w-[320px] shrink-0 lg:sticky lg:top-24 h-fit">
                         <div className="bg-white border-2 border-slate-100 p-8 lg:p-6 xl:p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-lg text-primary text-[10px] font-black uppercase tracking-widest mb-6">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-lg text-primary text-[10px] font-black uppercase tracking-widest mb-6 lg:mb-4 xl:mb-6">
                                 <Zap className="w-3.5 h-3.5" /> Quick Decision Panel
                             </div>
                             
-                            <h4 className="text-2xl font-black text-slate-800 mb-8 lg:mb-6 xl:mb-8 leading-tight">Key Value Points</h4>
+                            <h4 className="text-2xl font-black text-slate-800 mb-8 lg:mb-4 xl:mb-8 leading-tight">Key Value Points</h4>
 
-                            <div className="space-y-6 lg:space-y-5 xl:space-y-6">
+                            <div className="space-y-6 lg:space-y-3.5 xl:space-y-6">
                                 {course.hasInternship && (
                                     <div className="flex gap-4 group">
                                         <motion.div
@@ -390,7 +390,7 @@ export default function CourseDetail() {
                                 </div>
                             </div>
 
-                            <div className="mt-12 pt-8 border-t border-slate-100 text-center">
+                            <div className="mt-12 lg:mt-6 xl:mt-12 pt-8 lg:pt-4 xl:pt-8 border-t border-slate-100 text-center">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Empowering Students Since 2000</p>
                             </div>
                         </div>
