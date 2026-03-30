@@ -45,7 +45,7 @@ const IntroOverlay = ({ onComplete }: IntroOverlayProps) => {
                                 duration: 0.6, 
                                 ease: [0.22, 1, 0.36, 1] 
                             }}
-                            className="text-4xl md:text-6xl font-black tracking-[0.05em]"
+                            className="text-4xl md:text-6xl font-black tracking-[0.2em] uppercase"
                         >
                             <span className="text-[#2384C6]">Excel</span>{" "}
                             <span className="text-[#D94444]">Computers</span>
