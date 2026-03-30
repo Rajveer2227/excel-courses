@@ -10,12 +10,14 @@ const stats = [
 
 export default function Home() {
     return (
-        <div className="min-h-screen w-full relative bg-[#0d1117] flex flex-col pt-20 pb-12">
+        <div className="min-h-screen lg:h-[100dvh] w-full relative bg-[#0d1117] flex flex-col pt-20 pb-12 lg:pt-0 lg:pb-0 lg:overflow-hidden">
+            {/* Absolute fixed dark underlay to prevent white space when address bar hides on tablet */}
+            <div className="fixed inset-0 bg-[#0d1117] -z-50 pointer-events-none" />
             {/* Background depth layers - matching Courses page */}
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)] pointer-events-none" />
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)] pointer-events-none" />
 
-            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-6 lg:pl-28 lg:pr-8">
+            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-6 lg:pl-36 lg:pr-8">
 
                 {/* Badge */}
                 <motion.div
@@ -79,7 +81,7 @@ export default function Home() {
             </div>
 
             {/* Stats Section - Fixed at bottom */}
-            <div className="container mx-auto px-6 lg:pl-28 lg:pr-8 relative z-10 pb-6 max-w-5xl shrink-0">
+            <div className="container mx-auto px-6 lg:pl-36 lg:pr-8 relative z-10 pb-6 max-w-5xl shrink-0">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     {stats.map((stat, index) => {
                         const Icon = stat.icon;

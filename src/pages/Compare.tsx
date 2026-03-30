@@ -133,13 +133,15 @@ export default function Compare() {
     if (!c1 || !c2) return null;
 
     return (
-        <div className="min-h-screen w-full bg-[#0d1117] flex flex-col relative">
+        <div className="min-h-screen lg:h-[100dvh] w-full bg-[#0d1117] flex flex-col relative lg:overflow-hidden">
+            {/* Absolute fixed dark underlay to prevent white space when address bar hides on tablet */}
+            <div className="fixed inset-0 bg-[#0d1117] -z-50 pointer-events-none" />
             {/* Background depth layers */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-            <div className="relative z-10 flex flex-col pt-16 pb-20 px-6 lg:pl-28 lg:pr-8 max-w-7xl mx-auto w-full">
+            <div className="relative z-10 flex flex-col pt-16 pb-20 lg:pt-4 lg:pb-6 px-6 lg:pl-36 lg:pr-8 max-w-7xl mx-auto w-full h-full">
 
                 {/* ── Header ── */}
                 <motion.div
@@ -189,7 +191,7 @@ export default function Compare() {
                             </motion.div>
                         </AnimatePresence>
 
-                        <div className="flex flex-col divide-y divide-white/5">
+                        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0 flex flex-col divide-y divide-white/5">
                             {rows.map((row, i) => {
                                 const Icon = row.icon;
                                 const val = row.get(c1);
@@ -292,7 +294,7 @@ export default function Compare() {
                             </motion.div>
                         </AnimatePresence>
 
-                        <div className="flex flex-col divide-y divide-white/5">
+                        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0 flex flex-col divide-y divide-white/5">
                             {rows.map((row, i) => {
                                 const Icon = row.icon;
                                 const val = row.get(c2);

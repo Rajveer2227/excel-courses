@@ -132,7 +132,7 @@ export default function CourseDetail() {
 
 
             {/* 1. TOP STRIP (STATIC OVERLAP) */}
-            <div className="w-full relative -mt-16 container mx-auto px-6 lg:pl-28 lg:pr-8 z-10">
+            <div className="w-full relative -mt-16 container mx-auto px-6 lg:pl-36 lg:pr-8 z-10">
                 <div className="w-full max-w-5xl mx-auto px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between py-6 md:py-5 rounded-[2rem] bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 gap-y-6 md:gap-y-8">
                     <div className="w-1/2 md:flex-1 flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -171,7 +171,7 @@ export default function CourseDetail() {
             </div>
 
             <div className="w-full max-w-[1600px] mx-auto px-6 mt-12">
-                <div className="flex flex-col lg:flex-row items-start gap-8 lg:pl-28 lg:pr-8">
+                <div className="flex flex-col lg:flex-row items-start gap-8 lg:pl-36 lg:pr-8">
                     
                     {/* Left spacer - desktop only */}
                     <div className="hidden lg:block w-[60px] shrink-0" />
