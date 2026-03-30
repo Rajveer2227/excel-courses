@@ -7,7 +7,7 @@ import {
     Award, Zap, Terminal, BookOpen, Code2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { courses } from '../data/courses';
+import { courses, DEFAULT_WHAT_YOU_WILL_LEARN } from '../data/courses';
 import type { Course } from '../data/courses';
 
 export default function CourseDetail() {
@@ -33,6 +33,7 @@ export default function CourseDetail() {
     const benefits = 'benefits' in course ? (course.benefits as string[]) : [];
     const whoShouldJoin = 'whoShouldJoin' in course ? (course.whoShouldJoin as string[]) : [];
     const careerOutcomes = 'careerOutcomes' in course ? (course.careerOutcomes as string[]) : [];
+    const whatYouWillLearn = ('whatYouWillLearn' in course && course.whatYouWillLearn) ? (course.whatYouWillLearn as string[]) : DEFAULT_WHAT_YOU_WILL_LEARN;
 
     return (
         <div className="min-h-screen w-full bg-white pb-20">
@@ -132,7 +133,7 @@ export default function CourseDetail() {
 
 
             {/* 1. TOP STRIP (STATIC OVERLAP) */}
-            <div className="w-full relative -mt-16 container mx-auto px-6 lg:pl-36 lg:pr-8 z-10">
+            <div className="w-full relative -mt-16 container mx-auto px-6 lg:pl-28 lg:pr-8 z-10">
                 <div className="w-full max-w-5xl mx-auto px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between py-6 md:py-5 rounded-[2rem] bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 gap-y-6 md:gap-y-8">
                     <div className="w-1/2 md:flex-1 flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -144,7 +145,7 @@ export default function CourseDetail() {
                         </div>
                     </div>
 
-                    <div className="hidden md:block w-px h-8 bg-white/10 shrink-0" />
+                    <div className="hidden md:block w-px h-8 bg-white/10 shrink-0 mx-2 lg:mx-4" />
 
                     <div className="w-1/2 md:flex-1 flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -156,7 +157,7 @@ export default function CourseDetail() {
                         </div>
                     </div>
 
-                    <div className="hidden md:block w-px h-8 bg-white/10 shrink-0" />
+                    <div className="hidden md:block w-px h-8 bg-white/10 shrink-0 mx-2 lg:mx-4" />
 
                     <div className="w-full md:flex-1 flex items-center justify-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -171,10 +172,10 @@ export default function CourseDetail() {
             </div>
 
             <div className="w-full max-w-[1600px] mx-auto px-6 mt-12">
-                <div className="flex flex-col lg:flex-row items-start gap-8 lg:pl-36 lg:pr-8">
+                <div className="flex flex-col lg:flex-row items-start gap-8 lg:pl-28 lg:pr-8">
                     
                     {/* Left spacer - desktop only */}
-                    <div className="hidden lg:block w-[60px] shrink-0" />
+                    <div className="hidden xl:block w-[60px] shrink-0" />
 
                     {/* MAIN CONTENT AREA */}
                     <div className="flex-1 min-w-0 space-y-16">
@@ -198,35 +199,96 @@ export default function CourseDetail() {
                                     <motion.div 
                                         key={i}
                                         whileHover={{ y: -5 }}
-                                        className="p-4 bg-white border border-slate-100 rounded-xl flex items-center gap-3 group hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all"
+                                        className="relative p-[2px] rounded-xl overflow-hidden group shadow-sm hover:shadow-[0_0_15px_rgba(16,185,129,0.15)] transition-all duration-300"
                                     >
-                                        <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors shrink-0">
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 group-hover:text-inherit" />
+                                        {/* Base border layer */}
+                                        <div className="absolute inset-0 bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors duration-300" />
+                                        
+                                        {/* Animated spinning background element */}
+                                        <div 
+                                            className="absolute w-[200%] h-[200%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-[spin_3s_linear_infinite] opacity-70 group-hover:opacity-100 transition-opacity duration-300"
+                                            style={{ background: 'conic-gradient(from 0deg, transparent 60%, rgba(16, 185, 129, 0.8) 100%)' }}
+                                        />
+                                        
+                                        {/* Inner content wrapper */}
+                                        <div className="relative p-4 bg-white rounded-[10px] flex items-center gap-3 h-full z-10 w-full">
+                                            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors shrink-0">
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-500 group-hover:text-inherit" />
+                                            </div>
+                                            <span className="font-bold text-slate-700 text-base md:text-lg">{benefit}</span>
                                         </div>
-                                        <span className="font-bold text-slate-700 text-base md:text-lg">{benefit}</span>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* 4.5. WHAT YOU WILL LEARN */}
+                        <section>
+                            <div className="mb-8">
+                                <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-2">What You Will Learn</h2>
+                                <p className="text-lg md:text-xl text-slate-600 font-medium">Key practical skills you will gain during this course</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {whatYouWillLearn.map((skill, i) => (
+                                    <motion.div 
+                                        key={i}
+                                        whileHover={{ y: -5 }}
+                                        className="relative p-[2px] rounded-xl overflow-hidden group shadow-sm hover:shadow-[0_0_15px_rgba(59,130,246,0.15)] transition-all duration-300"
+                                    >
+                                        {/* Base border layer */}
+                                        <div className="absolute inset-0 bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors duration-300" />
+                                        
+                                        {/* Animated spinning background element */}
+                                        <div 
+                                            className="absolute w-[200%] h-[200%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-[spin_3s_linear_infinite] opacity-70 group-hover:opacity-100 transition-opacity duration-300"
+                                            style={{ background: 'conic-gradient(from 0deg, transparent 60%, rgba(59, 130, 246, 0.8) 100%)' }}
+                                        />
+                                        
+                                        {/* Inner content wrapper */}
+                                        <div className="relative p-4 bg-white rounded-[10px] flex items-center gap-3 h-full z-10 w-full">
+                                            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors shrink-0">
+                                                <Code2 className="w-5 h-5 text-blue-500 group-hover:text-inherit" />
+                                            </div>
+                                            <span className="font-bold text-slate-700 text-base md:text-lg">{skill}</span>
+                                        </div>
                                     </motion.div>
                                 ))}
                             </div>
                         </section>
 
                         {/* 5. WHO SHOULD JOIN */}
-                        <section className="bg-slate-50 rounded-[2rem] p-8 md:p-12 border border-slate-100">
-                             <div className="max-w-full">
+                        <section className="relative overflow-hidden bg-white rounded-[2rem] p-8 md:p-12 border border-slate-100 shadow-sm">
+                            {/* Decorative Premium Blobs */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+                            
+                             <div className="max-w-full relative z-10">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 rounded-lg text-blue-600 text-[10px] font-black uppercase tracking-widest mb-4">
                                     <Users className="w-3.5 h-3.5" /> Target Audience
                                 </div>
                                 <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-8">Is This For You?</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                     {whoShouldJoin.map((who, i) => (
-                                        <div key={i} className="flex gap-4">
-                                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-1">
-                                                <Target className="w-3.5 h-3.5 text-white" />
+                                        <motion.div 
+                                            key={i}
+                                            whileHover={{ y: -6 }}
+                                            className="flex flex-col rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 group overflow-hidden"
+                                        >
+                                            {/* Header Section for Icon */}
+                                            <div className="py-6 flex justify-center bg-slate-50/50 border-b border-slate-100/50">
+                                                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:border-blue-600 transition-all duration-500 animate-premium-wiggle">
+                                                    <Target className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors duration-300" />
+                                                </div>
                                             </div>
-                                            <p className="font-bold text-slate-700 leading-snug text-base md:text-lg">{who}</p>
-                                        </div>
+                                            
+                                            {/* Body Section for Text */}
+                                            <div className="p-6 flex flex-col justify-center items-center text-center flex-grow">
+                                                <p className="font-bold text-slate-700 leading-snug text-base md:text-lg">{who}</p>
+                                            </div>
+                                        </motion.div>
                                     ))}
                                 </div>
-                             </div>
+                            </div>
                         </section>
 
                         {/* 6. CAREER PATH */}
@@ -253,7 +315,7 @@ export default function CourseDetail() {
                     </div>
 
                     {/* RIGHT COLUMN: Quick Decision Panel */}
-                    <div className="w-full lg:w-[320px] shrink-0 lg:sticky lg:top-24 h-fit">
+                    <div className="w-full lg:w-[280px] xl:w-[320px] shrink-0 lg:sticky lg:top-24 h-fit">
                         <div className="bg-white border-2 border-slate-100 p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50">
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-lg text-primary text-[10px] font-black uppercase tracking-widest mb-6">
                                 <Zap className="w-3.5 h-3.5" /> Quick Decision Panel

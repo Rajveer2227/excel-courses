@@ -17,7 +17,7 @@ export default function Home() {
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)] pointer-events-none" />
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)] pointer-events-none" />
 
-            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-6 lg:pl-36 lg:pr-8">
+            <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-6 lg:pl-28 lg:pr-8">
 
                 {/* Badge */}
                 <motion.div
@@ -81,7 +81,7 @@ export default function Home() {
             </div>
 
             {/* Stats Section - Fixed at bottom */}
-            <div className="container mx-auto px-6 lg:pl-36 lg:pr-8 relative z-10 pb-6 max-w-5xl shrink-0">
+            <div className="container mx-auto px-6 lg:pl-28 lg:pr-8 relative z-10 pb-6 max-w-5xl shrink-0">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     {stats.map((stat, index) => {
                         const Icon = stat.icon;
@@ -92,18 +92,29 @@ export default function Home() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
                                 whileHover={{ y: -5 }}
-                                className="bg-white/8 backdrop-blur-md border border-white/10 shadow-xl rounded-2xl md:rounded-3xl p-4 flex flex-col items-center justify-center text-center group transition-all"
+                                className="relative p-[1.5px] rounded-2xl md:rounded-3xl overflow-hidden group shadow-xl transition-all"
                             >
-                                <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-primary/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform group-hover:bg-primary/30">
-                                    <Icon className="w-6 h-6 md:w-8 h-8 text-primary" />
+                                {/* Base border layer/background layer */}
+                                <div className="absolute inset-0 bg-white/5 transition-colors duration-300 group-hover:bg-white/10" />
+                                
+                                {/* Animated spinning background element */}
+                                <div 
+                                    className="absolute w-[300%] h-[300%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-[spin_4s_linear_infinite] opacity-40 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                                    style={{ background: 'conic-gradient(from 0deg, transparent 80%, rgba(255, 255, 255, 0.6) 100%)' }}
+                                />
+
+                                <div className="relative z-10 w-full h-full p-4 bg-[#161b22] rounded-[14px] md:rounded-[22px] flex flex-col items-center justify-center text-center">
+                                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform group-hover:bg-white/15 border border-white/10">
+                                        <Icon className="w-6 h-6 md:w-8 h-8 text-white" />
+                                    </div>
+                                    <h3 className="text-2xl md:text-3xl font-black text-white mb-1 flex items-center gap-1">
+                                        {stat.value}
+                                        {stat.suffix && <span className="text-lg md:text-xl">{stat.suffix}</span>}
+                                    </h3>
+                                    <p className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">
+                                        {stat.label}
+                                    </p>
                                 </div>
-                                <h3 className="text-2xl md:text-3xl font-black text-white mb-1 flex items-center gap-1">
-                                    {stat.value}
-                                    {stat.suffix && <span className="text-lg md:text-xl">{stat.suffix}</span>}
-                                </h3>
-                                <p className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">
-                                    {stat.label}
-                                </p>
                             </motion.div>
                         );
                     })}

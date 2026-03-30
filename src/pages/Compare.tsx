@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock, IndianRupee, Briefcase, Award, Zap,
@@ -127,6 +127,34 @@ export default function Compare() {
     const [course1, setCourse1] = useState(defaultC1);
     const [course2, setCourse2] = useState(defaultC2);
 
+    // Refs for parallel scroll sync
+    const scrollRef1 = useRef<HTMLDivElement>(null);
+    const scrollRef2 = useRef<HTMLDivElement>(null);
+    const isSyncingRef = useRef(false);
+
+    const syncScroll = (source: HTMLDivElement, target: HTMLDivElement) => {
+        if (!isSyncingRef.current) {
+            isSyncingRef.current = true;
+            target.scrollTop = source.scrollTop;
+            // Delay reset to ignore the secondary scroll event triggered by the manual sync
+            requestAnimationFrame(() => {
+                isSyncingRef.current = false;
+            });
+        }
+    };
+
+    const handleScroll1 = () => {
+        if (scrollRef1.current && scrollRef2.current) {
+            syncScroll(scrollRef1.current, scrollRef2.current);
+        }
+    };
+
+    const handleScroll2 = () => {
+        if (scrollRef1.current && scrollRef2.current) {
+            syncScroll(scrollRef2.current, scrollRef1.current);
+        }
+    };
+
     const c1 = courses.find(c => c.id === course1) as Course | undefined;
     const c2 = courses.find(c => c.id === course2) as Course | undefined;
 
@@ -141,7 +169,7 @@ export default function Compare() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-            <div className="relative z-10 flex flex-col pt-16 pb-20 lg:pt-4 lg:pb-6 px-6 lg:pl-36 lg:pr-8 max-w-7xl mx-auto w-full h-full">
+            <div className="relative z-10 flex flex-col pt-16 pb-20 lg:pt-4 lg:pb-6 px-6 lg:pl-28 lg:pr-8 max-w-7xl mx-auto w-full h-full">
 
                 {/* ── Header ── */}
                 <motion.div
@@ -191,7 +219,11 @@ export default function Compare() {
                             </motion.div>
                         </AnimatePresence>
 
-                        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0 flex flex-col divide-y divide-white/5">
+                        <div 
+                            ref={scrollRef1}
+                            onScroll={handleScroll1}
+                            className="flex-1 overflow-y-auto scrollbar-hide min-h-0 flex flex-col divide-y divide-white/5"
+                        >
                             {rows.map((row, i) => {
                                 const Icon = row.icon;
                                 const val = row.get(c1);
@@ -294,7 +326,11 @@ export default function Compare() {
                             </motion.div>
                         </AnimatePresence>
 
-                        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0 flex flex-col divide-y divide-white/5">
+                        <div 
+                            ref={scrollRef2}
+                            onScroll={handleScroll2}
+                            className="flex-1 overflow-y-auto scrollbar-hide min-h-0 flex flex-col divide-y divide-white/5"
+                        >
                             {rows.map((row, i) => {
                                 const Icon = row.icon;
                                 const val = row.get(c2);

@@ -21,6 +21,7 @@ html, body {
 
   /* Force desktop layout on OnePlus Pad Go landscape (~963px CSS pixels at 2.5x DPR) */
   --breakpoint-lg: 900px;
+  --animate-premium-wiggle: premium-wiggle 3s ease-in-out infinite;
 }
 
 @layer utilities {
@@ -40,6 +41,9 @@ html, body {
   .hide-scrollbar::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
   }
+  .animate-shimmer-slow {
+    animation: shimmer 4s infinite linear;
+  }
 }
 
 body {
@@ -49,13 +53,13 @@ body {
 h1, h2, h3, h4, h5, h6 {
   @apply font-heading tracking-tight;
 }
-@layer utilities {
-  .animate-shimmer-slow {
-    animation: shimmer 4s infinite linear;
-  }
-}
 
 @keyframes shimmer {
   0% { transform: translateX(0%) skewX(-15deg); }
   100% { transform: translateX(-100%) skewX(-15deg); }
+}
+
+@keyframes premium-wiggle {
+  0%, 100% { transform: rotate(-12deg) scale(1.0); }
+  50% { transform: rotate(12deg) scale(1.15); }
 }

@@ -12,6 +12,7 @@ export interface Course {
     benefits?: string[];
     whoShouldJoin?: string[];
     careerOutcomes?: string[];
+    whatYouWillLearn?: string[];
     category: string;
     duration: string;
     fees: string;
@@ -50,6 +51,17 @@ const DEFAULT_BENEFITS = [
     "Experienced Trainers",
     "25+ Years Experience",
     "Individual Student Attention"
+];
+
+export const DEFAULT_WHAT_YOU_WILL_LEARN = [
+    "Input & Output (printf, scanf)",
+    "Conditional Statements (if, if-else, switch)",
+    "Loops (for, while, do-while)",
+    "Arrays & Strings",
+    "Functions (call by value & reference)",
+    "Pointers & Memory Handling",
+    "Structures & Unions",
+    "File Handling"
 ];
 
 const DEFAULT_HIGHLIGHTS = [
@@ -121,6 +133,16 @@ export const courses: Course[] = [
             "Transition to Game Development (Unreal Engine uses C++)",
             "Strong foundation for Data Structures & Algorithms",
         ],
+        whatYouWillLearn: [
+            "OOP Basics (Class & Object)",
+            "Constructors & Destructors",
+            "Inheritance (Single, Multiple, Hybrid)",
+            "Function & Operator Overloading",
+            "Pointers & Polymorphism",
+            "Static Members & Friend Functions",
+            "Templates (Generic Programming)",
+            "File Handling (File Streams)"
+        ],
         category: '💻 Programming & Core Development',
         duration: '1.5 Months',
         fees: '₹3,000',
@@ -149,6 +171,16 @@ export const courses: Course[] = [
             "Understand programming logic clearly",
             "Prepare for software development learning path",
             "Improve problem-solving skills"
+        ],
+        whatYouWillLearn: [
+            "Java Basics & Data Types",
+            "Conditional Statements & Loops",
+            "Arrays & Strings",
+            "OOP Concepts",
+            "Exception Handling",
+            "File Handling",
+            "Multithreading",
+            "Collection Framework"
         ],
         category: '💻 Programming & Core Development',
         duration: '1.5 Months',
@@ -179,6 +211,16 @@ export const courses: Course[] = [
             "Move towards Full Stack Java Development",
             "Apply for entry-level Java developer roles"
         ],
+        whatYouWillLearn: [
+            "GUI Development (Swing)",
+            "JDBC (Database Connectivity)",
+            "Networking (Socket Programming)",
+            "RMI (Remote Methods)",
+            "Servlets & JSP",
+            "JavaBeans",
+            "Web Application Development",
+            "Project Development"
+        ],
         category: '💻 Programming & Core Development',
         duration: '1.5 Months',
         fees: '₹7,000',
@@ -207,6 +249,16 @@ export const courses: Course[] = [
             "Build simple Python programs and scripts",
             "Understand programming logic clearly",
             "Improve problem-solving skills"
+        ],
+        whatYouWillLearn: [
+            "Basics (Variables, Data Types, Operators)",
+            "Conditional Statements (if, else)",
+            "Loops (for, while)",
+            "Lists, Tuples & Dictionaries",
+            "Functions & Modules",
+            "String Handling",
+            "File Handling",
+            "Exception Handling"
         ],
         category: '💻 Programming & Core Development',
         duration: '1.5 Months',
@@ -237,6 +289,16 @@ export const courses: Course[] = [
             "Move towards Full Stack Python or Data Analytics",
             "Apply for entry-level Python developer roles"
         ],
+        whatYouWillLearn: [
+            "OOP Concepts (Class, Inheritance)",
+            "Regular Expressions (re module)",
+            "Web Development Basics (GET, POST)",
+            "Database Connectivity",
+            "Networking & Sockets",
+            "Multithreading",
+            "GUI (Tkinter)",
+            "NumPy, Pandas & SciPy"
+        ],
         category: '💻 Programming & Core Development',
         duration: '1.5 Months',
         fees: '₹7,000',
@@ -265,6 +327,16 @@ export const courses: Course[] = [
             "Build strong logic and algorithm skills",
             "Improve performance of applications",
             "Move towards software development roles"
+        ],
+        whatYouWillLearn: [
+            "Arrays & Linked Lists",
+            "Stacks & Queues",
+            "Trees & Binary Trees",
+            "Graphs (DFS, BFS)",
+            "Hashing Techniques",
+            "Searching Algorithms (Linear, Binary)",
+            "Sorting Algorithms (Bubble, Quick, Merge)",
+            "Time & Space Complexity"
         ],
         category: '💻 Programming & Core Development',
         duration: '2 Months',
@@ -297,6 +369,16 @@ export const courses: Course[] = [
             "Apply for entry-level software developer roles",
             "Start freelance or project-based work"
         ],
+        whatYouWillLearn: [
+            "Frontend (HTML, CSS, JavaScript)",
+            "Bootstrap (Responsive Design)",
+            "Core Java (OOP, Collections)",
+            "Advanced Java (Servlets, JSP)",
+            "Spring Boot (Backend Development)",
+            "Database (SQL, CRUD Operations)",
+            "Hibernate (ORM Framework)",
+            "Full Stack Project"
+        ],
         category: '⚡ Full Stack Development',
         duration: '6 Months',
         fees: '₹30,000',
@@ -325,6 +407,16 @@ export const courses: Course[] = [
             "Work on backend development using Python",
             "Apply for entry-level developer roles",
             "Start freelance or project-based work"
+        ],
+        whatYouWillLearn: [
+            "Frontend (HTML, CSS, JavaScript)",
+            "Bootstrap (Responsive Design)",
+            "Core Python (Basics & Logic)",
+            "Advanced Python (OOP, Modules)",
+            "Flask (Backend Development)",
+            "Database (SQL, CRUD Operations)",
+            "APIs & GitHub",
+            "Full Stack Project"
         ],
         category: '⚡ Full Stack Development',
         duration: '6 Months',
@@ -356,6 +448,16 @@ export const courses: Course[] = [
             "Start freelance web development work",
             "Move to advanced courses like React or Full Stack",
             "Understand front-end development clearly"
+        ],
+        whatYouWillLearn: [
+            "HTML (Tags, Forms, Tables)",
+            "CSS (Styling, Box Model, Positioning)",
+            "JavaScript (Variables, Functions, Events)",
+            "DOM Manipulation",
+            "Form Validation",
+            "Bootstrap (Grid & Components)",
+            "Responsive Design",
+            "Mini Project Development"
         ],
         category: '🌐 Web Development',
         duration: '2 Months',
@@ -446,6 +548,16 @@ export const courses: Course[] = [
             "Support decision-making in companies",
             "Work with real datasets"
         ],
+        whatYouWillLearn: [
+            "Advanced Excel (Functions, Dashboards)",
+            "SQL (Queries, Joins, Analysis)",
+            "Power BI (Reports & Dashboards)",
+            "Data Cleaning & Transformation",
+            "Data Visualization Techniques",
+            "Python (NumPy, Pandas)",
+            "Basic Statistics (Mean, Correlation)",
+            "Analytics Project"
+        ],
         category: '📊 Data & Analytics',
         duration: '6 Months',
         fees: '₹30,000',
@@ -534,6 +646,16 @@ export const courses: Course[] = [
             "Support backend systems",
             "Prepare for roles like Database Developer or Analyst",
             "Improve data handling skills"
+        ],
+        whatYouWillLearn: [
+            "Database Concepts & DBMS",
+            "SQL Basics (DDL, DML)",
+            "Queries (SELECT, WHERE, ORDER BY)",
+            "Joins & Subqueries",
+            "Aggregate Functions (SUM, COUNT)",
+            "Constraints & Data Integrity",
+            "Stored Procedures & Triggers",
+            "Transactions (COMMIT, ROLLBACK)"
         ],
         category: '🗄 Database Technologies',
         duration: '1.5 Months',
