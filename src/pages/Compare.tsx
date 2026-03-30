@@ -169,7 +169,7 @@ export default function Compare() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-            <div className="relative z-10 flex flex-col pt-16 pb-20 lg:pt-4 lg:pb-6 px-6 lg:pl-28 lg:pr-8 max-w-7xl mx-auto w-full h-full">
+            <div className="relative z-10 flex flex-col pt-16 pb-20 lg:pt-4 lg:pb-6 px-6 lg:pl-32 lg:pr-8 max-w-7xl mx-auto w-full h-full">
 
                 {/* ── Header ── */}
                 <motion.div

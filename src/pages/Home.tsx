@@ -60,8 +60,9 @@ export default function Home() {
                             <span className="text-[#2281c3]">Excel</span> <span className="text-[#d74345]">Computers 🚀</span>
                         </span>
                     </h1>
-                    <p className="text-lg md:text-xl lg:text-xl text-slate-300 mb-4 font-medium max-w-3xl mx-auto px-4">
-                        25+ Years of Excellence in IT Training. Transform your career with industry-oriented courses.
+                    <p className="text-lg md:text-xl lg:text-xl text-slate-300 mb-6 font-medium max-w-3xl mx-auto px-4 flex flex-col gap-1">
+                        <span>25+ Years of Excellence in IT Training.</span>
+                        <span>Transform your Career with Industry-Oriented Courses.</span>
                     </p>
 
                     <div className="flex justify-center">
@@ -121,23 +122,47 @@ export default function Home() {
                 </div>
 
                 {/* Social & Web Links (Below Cards) */}
+                {/* Footer Section */}
                 <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.6, duration: 0.5 }}
-                    className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-4 text-slate-500"
+                    className="mt-4 flex flex-col items-center justify-center gap-2 text-slate-500"
                 >
-                    <a href="https://instagram.com/excelcomputerskolhapur" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-pink-500 transition-colors group">
-                        <Instagram className="w-4 h-4" />
-                        <span className="text-xs font-bold tracking-wide">excelcomputerskolhapur</span>
-                    </a>
-                    
-                    <span className="hidden sm:inline-block font-black opacity-50">-</span>
+                    {/* Excel Official Links */}
+                    {/* Excel Official Links */}
+                    <div className="flex flex-col sm:flex-row items-center gap-3 md:gap-6">
+                        <a href="https://instagram.com/excelcomputerskolhapur" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-pink-500 transition-all group">
+                            <Instagram className="w-3.5 h-3.5" />
+                            <span className="text-[11px] font-black tracking-wider">excelcomputerskolhapur</span>
+                        </a>
+                        
+                        <span className="hidden sm:inline-block font-black opacity-30">/</span>
 
-                    <a href="https://excelcomputers.info" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-primary transition-colors group">
-                        <Globe className="w-4 h-4" />
-                        <span className="text-xs font-bold tracking-wide">excelcomputers.info</span>
-                    </a>
+                        <a href="https://excelcomputers.info" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-primary transition-all group">
+                            <Globe className="w-3.5 h-3.5" />
+                            <span className="text-[11px] font-black tracking-wider">excelcomputers.info</span>
+                        </a>
+                    </div>
+
+                    {/* Developer Credit - Micro text with 100% Precise Border-Only Light */}
+                    <div className="mt-8 relative p-[1.5px] rounded-full overflow-hidden group w-fit mx-auto shadow-2xl">
+                        {/* Background Spinning Light Container (Trapped on the edge) */}
+                        <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-colors duration-300 pointer-events-none" />
+                        <div 
+                            className="absolute w-[300%] h-[300%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-[spin_4s_linear_infinite] opacity-40 transition-opacity duration-300 pointer-events-none"
+                            style={{ background: 'conic-gradient(from 0deg, transparent 80%, rgba(255, 255, 255, 0.6) 100%)' }}
+                        />
+                        
+                        {/* THE MASK Core - SOLID OPAQUE center to KILL all internal light */}
+                        <div className="absolute inset-[1.5px] bg-[#161b22] rounded-full z-10" />
+
+                        {/* Text Content Layer */}
+                        <div className="relative z-20 px-6 py-2 flex items-center justify-center gap-3 transition-opacity opacity-60 group-hover:opacity-100">
+                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Designed & Developed by</span>
+                            <a href="https://www.websightworks.com" target="_blank" rel="noopener noreferrer" className="text-[9px] font-black uppercase tracking-[0.2em] text-white hover:text-white transition-colors no-underline">Websight Works</a>
+                        </div>
+                    </div>
                 </motion.div>
             </div>
         </div>
