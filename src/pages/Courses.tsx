@@ -123,7 +123,7 @@ export default function Courses() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -15 }}
                             transition={{ duration: 0.25, ease: 'easeOut' }}
-                            className={filteredCourses.length > 0 ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" : "w-full"}
+                            className={filteredCourses.length > 0 ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8" : "w-full"}
                         >
                             {filteredCourses.length > 0 ? (
                                 filteredCourses.map((course) => {

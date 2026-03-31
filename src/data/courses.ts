@@ -309,10 +309,10 @@ export const courses: Course[] = [
     },
     {
         id: 'dsa',
-        title: 'Data Structures',
-        titleHook: "Master Data Structures and Problem Solving 💡",
+        title: 'Data Structures & Algorithms',
+        titleHook: "Master Data Structures & Algorithms 💡",
         tagline: "Learn how to solve problems efficiently and prepare for coding interviews and software development roles",
-        overview: "Data Structures helps you understand how data is stored, organized, and used in programs. You will learn concepts like arrays, linked lists, stacks, queues, trees, and searching and sorting techniques.\nThis course is very important for coding interviews and is a must for becoming a software developer.",
+        overview: "Data Structures & Algorithms helps you understand how data is stored, organized, and used in programs. You will learn concepts like arrays, linked lists, stacks, queues, trees, and searching and sorting techniques.\nThis course is very important for coding interviews and is a must for becoming a software developer.",
         highlightFeatures: DEFAULT_HIGHLIGHTS,
         benefits: DEFAULT_BENEFITS,
         whoShouldJoin: [
@@ -488,6 +488,16 @@ export const courses: Course[] = [
             "Move towards Full Stack Development",
             "Work on real-world projects"
         ],
+        whatYouWillLearn: [
+            "React Fundamentals & JSX",
+            "Components (Functional & Class)",
+            "Props & State Management",
+            "Event Handling in React",
+            "React Hooks (useState, useEffect)",
+            "Conditional Rendering",
+            "React Router (Navigation)",
+            "Forms & Project Development"
+        ],
         category: '🌐 Web Development',
         duration: '2 Months',
         fees: '₹12,000',
@@ -516,6 +526,16 @@ export const courses: Course[] = [
             "Start freelance website projects",
             "Build blogs and e-commerce sites",
             "Manage and maintain websites"
+        ],
+        whatYouWillLearn: [
+            "WordPress Basics & Dashboard",
+            "Website Designing Fundamentals",
+            "Installing & Setting Up WordPress",
+            "Working with Themes",
+            "Plugins & Website Features",
+            "Pages, Posts & Content Management",
+            "Elementor Page Builder",
+            "Website Deployment & Security"
         ],
         category: '🌐 Web Development',
         duration: '2 Months',
@@ -746,6 +766,16 @@ export const courses: Course[] = [
             "Improve knowledge of modern technologies",
             "Explore career paths in AI and Data fields"
         ],
+        whatYouWillLearn: [
+            "Basics of Artificial Intelligence",
+            "Basics of Machine Learning",
+            "Real-World AI Applications",
+            "Machine Learning Algorithms",
+            "Data Preprocessing Techniques",
+            "Model Training & Testing",
+            "AI Chatbots Development",
+            "Prompt Engineering Concepts"
+        ],
         category: '🤖 AI & Emerging Tech',
         duration: '2 Months',
         fees: '₹10,000',
@@ -818,10 +848,10 @@ export const courses: Course[] = [
     // Design & Creative Tools
     {
         id: 'canva',
-        title: 'Canva Design Mastery',
+        title: 'Canva',
         titleHook: "Create Designs Easily with Canva 🎨",
         tagline: "Design social media posts, posters, and graphics without advanced skills",
-        overview: "Canva is an easy-to-use design tool that helps you create professional designs quickly. You will learn how to design posts, banners, presentations, and marketing materials.\nIt is useful for students, businesses, and anyone interested in design.",
+        overview: "Canva helps you create professional designs quickly. You will learn how to design posts, banners, presentations, and marketing materials.\nIt is useful for students, businesses, and anyone interested in design.",
         highlightFeatures: DEFAULT_HIGHLIGHTS,
         benefits: DEFAULT_BENEFITS,
         whoShouldJoin: [
@@ -847,10 +877,10 @@ export const courses: Course[] = [
     },
     {
         id: 'coreldraw',
-        title: 'CorelDRAW',
-        titleHook: "Learn CorelDRAW for Graphic Design ✍️",
+        title: 'Corel DRAW',
+        titleHook: "Learn Corel DRAW for Graphic Design ✍️",
         tagline: "Create professional designs for printing, branding, and marketing",
-        overview: "CorelDRAW is used for creating professional designs like logos, banners, visiting cards, and print materials.\nIn this course, you will learn design tools, layouts, and how to create designs used in real business and printing work.",
+        overview: "Corel DRAW is used for creating professional designs like logos, banners, visiting cards, and print materials.\nIn this course, you will learn design tools, layouts, and how to create designs used in real business and printing work.",
         highlightFeatures: DEFAULT_HIGHLIGHTS,
         benefits: DEFAULT_BENEFITS,
         whoShouldJoin: [
