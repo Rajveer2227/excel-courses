@@ -607,6 +607,16 @@ export const courses: Course[] = [
             "Support decision-making in companies",
             "Move towards Data Analytics career"
         ],
+        whatYouWillLearn: [
+            "Connecting Power BI with Excel, SQL & Web Data",
+            "Data Cleaning & Transformation using Power Query",
+            "Data Modeling & Table Relationships",
+            "DAX Functions for Calculations & Analysis",
+            "Interactive Dashboards & Reports",
+            "Charts, Filters, Slicers & Data Visualization",
+            "Publishing & Sharing Reports",
+            "Real-World Power BI Project Development"
+        ],
         category: '📊 Data & Analytics',
         duration: '1.5 Months',
         fees: '₹7,000',
@@ -635,6 +645,16 @@ export const courses: Course[] = [
             "Perform data analysis",
             "Improve productivity in jobs",
             "Apply for roles like Data Entry, MIS Executive, Analyst"
+        ],
+        whatYouWillLearn: [
+            "Excel Basics, Formatting & Data Handling",
+            "Formulas and Functions for Calculations",
+            "Data Sorting, Filtering & Validation",
+            "Charts, Graphs & Data Visualization",
+            "VLOOKUP, XLOOKUP & Advanced Functions",
+            "Pivot Tables & Pivot Charts",
+            "Dashboard Creation & MIS Reporting",
+            "Automation using Macros, VBA & Power Query"
         ],
         category: '📊 Data & Analytics',
         duration: '1.5 Month',
@@ -805,6 +825,16 @@ export const courses: Course[] = [
             "Improve office and computer skills",
             "Apply for basic computer-based jobs"
         ],
+        whatYouWillLearn: [
+            "Computer Basics & File Management",
+            "Internet, Email & Digital Skills",
+            "Introduction to AI Tools & ChatGPT",
+            "Professional Document Creation in MS Word",
+            "Data Handling & Formulas in MS Excel",
+            "Presentation Design using PowerPoint",
+            "Using AI with Word, Excel & PowerPoint",
+            "Real Project Creation with AI Integration"
+        ],
         category: '🤖 AI & Emerging Tech',
         duration: '2 Months',
         fees: '₹6,000',
@@ -836,6 +866,16 @@ export const courses: Course[] = [
             "Work in offices and companies",
             "Start freelance accounting work"
         ],
+        whatYouWillLearn: [
+            "Accounting Fundamentals & Golden Rules",
+            "Company Creation & Configuration",
+            "Ledger & Voucher Management",
+            "Sales, Purchase & Payment Entries",
+            "Inventory & Stock Management",
+            "GST Transactions & Reports",
+            "Banking & Reconciliation",
+            "Financial Reports & Payroll Management"
+        ],
         category: '💼 Accounting & Business',
         duration: '3 Months',
         fees: '₹15,000',
@@ -846,35 +886,6 @@ export const courses: Course[] = [
     },
 
     // Design & Creative Tools
-    {
-        id: 'canva',
-        title: 'Canva',
-        titleHook: "Create Designs Easily with Canva 🎨",
-        tagline: "Design social media posts, posters, and graphics without advanced skills",
-        overview: "Canva helps you create professional designs quickly. You will learn how to design posts, banners, presentations, and marketing materials.\nIt is useful for students, businesses, and anyone interested in design.",
-        highlightFeatures: DEFAULT_HIGHLIGHTS,
-        benefits: DEFAULT_BENEFITS,
-        whoShouldJoin: [
-            "Beginners with no design experience",
-            "Students interested in social media content",
-            "Business owners and marketers",
-            "Anyone who wants to create designs easily"
-        ],
-        careerOutcomes: [
-            "Create social media posts and designs",
-            "Design posters, banners, and presentations",
-            "Work on freelance design projects",
-            "Support digital marketing activities",
-            "Build basic design skills"
-        ],
-        category: '🎨 Design & Creative Tools',
-        duration: '1.5 Month',
-        fees: '₹4,000',
-        icon: Palette,
-        color: 'from-pink-500 to-rose-600',
-        popular: false,
-        hasInternship: false,
-    },
     {
         id: 'coreldraw',
         title: 'Corel DRAW',
@@ -895,6 +906,16 @@ export const courses: Course[] = [
             "Take freelance design projects",
             "Create branding materials for businesses",
             "Build a career in graphic design"
+        ],
+        whatYouWillLearn: [
+            "Graphic Design Principles & Color Theory",
+            "CorelDRAW Interface & Design Tools",
+            "Shape, Text & Drawing Techniques",
+            "Creative Effects & Design Enhancements",
+            "Logo, Banner & Visiting Card Design",
+            "Brochure, Flyer & Advertisement Design",
+            "Social Media & Print Design Projects",
+            "High-Quality Vector Design & Export"
         ],
         category: '🎨 Design & Creative Tools',
         duration: '1.5 Months',
@@ -925,6 +946,16 @@ export const courses: Course[] = [
             "Take freelance editing and design projects",
             "Improve visual content quality"
         ],
+        whatYouWillLearn: [
+            "Photoshop Interface & Design Basics",
+            "Selection, Pen & Brush Tools",
+            "Layers, Masking & Photo Editing",
+            "Color Correction & Creative Effects",
+            "Social Media & Banner Design",
+            "Wedding Album & Magazine Design",
+            "Flyer, Brochure & Branding Projects",
+            "Professional Image Export Techniques"
+        ],
         category: '🎨 Design & Creative Tools',
         duration: '1.5 Months',
         fees: '₹6,000',
@@ -954,11 +985,50 @@ export const courses: Course[] = [
             "Take freelance editing projects",
             "Improve content quality"
         ],
+        whatYouWillLearn: [
+            "Video Editing Fundamentals & Design Basics",
+            "File Management & Media Organization",
+            "Premiere Pro Interface & Workspace Setup",
+            "Timeline Editing & Sequence Creation",
+            "Video Effects, Graphics & Transitions",
+            "Color Correction & Motion Graphics",
+            "YouTube, Instagram & Wedding Video Editing",
+            "High-Quality Video Export for Different Platforms"
+        ],
         category: '🎨 Design & Creative Tools',
         duration: '2 Months',
         fees: '₹10,000',
         icon: Video,
         color: 'from-fuchsia-500 to-pink-600',
+        popular: false,
+        hasInternship: false,
+    },
+    {
+        id: 'canva',
+        title: 'Canva',
+        titleHook: "Create Designs Easily with Canva 🎨",
+        tagline: "Design social media posts, posters, and graphics without advanced skills",
+        overview: "Canva helps you create professional designs quickly. You will learn how to design posts, banners, presentations, and marketing materials.\nIt is useful for students, businesses, and anyone interested in design.",
+        highlightFeatures: DEFAULT_HIGHLIGHTS,
+        benefits: DEFAULT_BENEFITS,
+        whoShouldJoin: [
+            "Beginners with no design experience",
+            "Students interested in social media content",
+            "Business owners and marketers",
+            "Anyone who wants to create designs easily"
+        ],
+        careerOutcomes: [
+            "Create social media posts and designs",
+            "Design posters, banners, and presentations",
+            "Work on freelance design projects",
+            "Support digital marketing activities",
+            "Build basic design skills"
+        ],
+        category: '🎨 Design & Creative Tools',
+        duration: '1.5 Month',
+        fees: '₹4,000',
+        icon: Palette,
+        color: 'from-pink-500 to-rose-600',
         popular: false,
         hasInternship: false,
     }
