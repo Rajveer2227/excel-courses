@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { checkDatabaseHealth, initializeSchema } from './lib/db';
+import { checkDatabaseHealth, initializeSchema } from './lib/db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only accept GET requests
