@@ -1,9 +1,17 @@
 /* index.css */
 @import "tailwindcss";
 
-html, body {
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  background-color: #0b0e14;
+}
+
+body {
   scroll-behavior: smooth;
   width: 100%;
+  overflow-x: hidden;
+  background-color: #0b0e14;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -61,4 +69,33 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes premium-wiggle {
   0%, 100% { transform: rotate(-12deg) scale(1.0); }
   50% { transform: rotate(12deg) scale(1.15); }
+}
+
+/* Sleek Modern Custom Scrollbar with Dark Track */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0e14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+::-webkit-scrollbar-corner {
+  background: #0b0e14;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) #0b0e14;
 }

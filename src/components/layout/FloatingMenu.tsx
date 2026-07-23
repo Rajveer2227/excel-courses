@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Layers, Play, Menu, X } from 'lucide-react';
+import { Home, BookOpen, Layers, Play, Share2, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
@@ -9,6 +9,7 @@ const navItems = [
     { path: '/courses', icon: BookOpen, label: 'Courses' },
     { path: '/compare', icon: Layers, label: 'Compare' },
     { path: '/presentation', icon: Play, label: 'Auto' },
+    { path: '/share', icon: Share2, label: 'Share' },
 ];
 
 export default function FloatingMenu() {

@@ -5,12 +5,13 @@ import ScrollToTop from './components/layout/ScrollToTop';
 import IntroOverlay from './components/common/IntroOverlay';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Lazy load page components for performance optimization
+// Lazy load page components for performance optimization (Home, Courses, Compare, Presentation, Share)
 const Home = lazy(() => import('./pages/Home'));
 const Courses = lazy(() => import('./pages/Courses'));
 const CourseDetail = lazy(() => import('./pages/CourseDetail'));
 const Compare = lazy(() => import('./pages/Compare'));
 const Presentation = lazy(() => import('./pages/Presentation'));
+const Share = lazy(() => import('./pages/Share'));
 
 // Simple, minimal centered loading fallback
 const LoadingFallback = () => (
@@ -57,6 +58,7 @@ function App() {
                   <Route path="courses" element={<Courses />} />
                   <Route path="courses/:id" element={<CourseDetail />} />
                   <Route path="compare" element={<Compare />} />
+                  <Route path="share" element={<Share />} />
                 </Route>
                 <Route path="/presentation" element={<Presentation />} />
               </Routes>
