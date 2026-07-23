@@ -1,11 +1,11 @@
 import type { MediaItem, ShareLog, RecentContact } from '../data/shareData';
-import { initialMediaItems, initialShareLogs, initialRecentContacts } from '../data/shareData';
+import { initialShareLogs, initialRecentContacts } from '../data/shareData';
 import { CSVParserService, type CSVParseResult } from './csvParserService';
 import { PhoneValidationService } from './phoneValidationService';
 import { WhatsAppCloudApiService } from './whatsappCloudApiService';
 import { AuditLoggerService } from './auditLoggerService';
 
-const MEDIA_STORAGE_KEY = 'excel_share_media_items';
+const MEDIA_CACHE_KEY = 'excel_share_media_cache';
 const LOGS_STORAGE_KEY = 'excel_share_history_logs';
 const CONTACTS_STORAGE_KEY = 'excel_share_recent_contacts';
 
@@ -14,10 +14,42 @@ class ShareService {
     private historyLogs: ShareLog[];
     private recentContacts: RecentContact[];
 
+    private mediaListeners: Set<(items: MediaItem[]) => void> = new Set();
+
     constructor() {
-        this.mediaItems = this.loadFromStorage(MEDIA_STORAGE_KEY, initialMediaItems);
+        this.mediaItems = this.loadFromStorage(MEDIA_CACHE_KEY, []);
         this.historyLogs = this.loadFromStorage(LOGS_STORAGE_KEY, initialShareLogs);
         this.recentContacts = this.loadFromStorage(CONTACTS_STORAGE_KEY, initialRecentContacts);
+        
+        // Initial fetch & background revalidation from Neon PostgreSQL REST API
+        this.fetchMediaFromApi();
+    }
+
+    public subscribeMedia(listener: (items: MediaItem[]) => void): () => void {
+        this.mediaListeners.add(listener);
+        return () => {
+            this.mediaListeners.delete(listener);
+        };
+    }
+
+    private notifyMediaListeners() {
+        this.saveToStorage(MEDIA_CACHE_KEY, this.mediaItems);
+        this.mediaListeners.forEach(listener => listener([...this.mediaItems]));
+    }
+
+    private async fetchMediaFromApi() {
+        try {
+            const res = await fetch('/api/media');
+            if (res.ok) {
+                const data: MediaItem[] = await res.json();
+                if (Array.isArray(data)) {
+                    this.mediaItems = data;
+                    this.notifyMediaListeners();
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to fetch media from Neon API', e);
+        }
     }
 
     private loadFromStorage<T>(key: string, fallback: T): T {
@@ -40,7 +72,7 @@ class ShareService {
         }
     }
 
-    // --- MEDIA ITEMS SERVICE ---
+    // --- MEDIA ITEMS SERVICE (NEON POSTGRESQL BACKED) ---
     public getAllMedia(): MediaItem[] {
         return [...this.mediaItems];
     }
@@ -59,21 +91,53 @@ class ShareService {
     }
 
     public toggleFavorite(id: string): MediaItem[] {
+        const target = this.mediaItems.find(item => item.id === id);
+        const newStatus = target ? !target.isFavorite : true;
+
+        // Optimistic UI Update
         this.mediaItems = this.mediaItems.map(item => 
-            item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
+            item.id === id ? { ...item, isFavorite: newStatus } : item
         );
-        this.saveToStorage(MEDIA_STORAGE_KEY, this.mediaItems);
+        this.notifyMediaListeners();
+
+        // Async dispatch to Neon REST API
+        fetch('/api/media', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, isFavorite: newStatus })
+        }).catch(err => {
+            console.error('Failed to sync favorite status to Neon DB', err);
+        });
+
         return this.getAllMedia();
     }
 
-    public addMediaItem(item: Omit<MediaItem, 'id' | 'uploadDate'>): MediaItem {
+    public async addMediaItem(item: Omit<MediaItem, 'id' | 'uploadDate'>): Promise<MediaItem> {
         const newItem: MediaItem = {
             ...item,
             id: `media-${Date.now()}`,
             uploadDate: new Date().toISOString().split('T')[0],
         };
+
+        // Optimistic UI Update
         this.mediaItems = [newItem, ...this.mediaItems];
-        this.saveToStorage(MEDIA_STORAGE_KEY, this.mediaItems);
+        this.notifyMediaListeners();
+
+        // Await dispatch to Neon REST API
+        try {
+            const res = await fetch('/api/media', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newItem)
+            });
+            if (res.ok) {
+                const created: MediaItem = await res.json();
+                this.mediaItems = this.mediaItems.map(m => m.id === newItem.id ? created : m);
+                this.notifyMediaListeners();
+            }
+        } catch (err) {
+            console.error('Failed to save new media item to Neon DB', err);
+        }
 
         // Audit Logging
         AuditLoggerService.logEvent('UPLOAD_MEDIA', {
@@ -88,8 +152,17 @@ class ShareService {
 
     public deleteMediaItem(id: string): MediaItem[] {
         const itemToDelete = this.mediaItems.find(m => m.id === id);
+
+        // Optimistic UI Update
         this.mediaItems = this.mediaItems.filter(item => item.id !== id);
-        this.saveToStorage(MEDIA_STORAGE_KEY, this.mediaItems);
+        this.notifyMediaListeners();
+
+        // Async dispatch to Neon REST API
+        fetch(`/api/media?id=${encodeURIComponent(id)}`, {
+            method: 'DELETE'
+        }).catch(err => {
+            console.error('Failed to delete media item from Neon DB', err);
+        });
 
         // Audit Logging
         if (itemToDelete) {
@@ -128,6 +201,7 @@ class ShareService {
         courseId: string;
         courseTitle: string;
         materials: string[];
+        isBulkRecipient?: boolean;
     }): Promise<{ success: boolean; log: ShareLog }> {
         const normalized = PhoneValidationService.normalize(payload.phone);
         const e164Phone = normalized.isValid ? normalized.e164 : (payload.phone.startsWith('+') ? payload.phone : `+91 ${payload.phone}`);
@@ -139,8 +213,7 @@ class ShareService {
             bodyVariables: [payload.name || 'Student', payload.courseTitle]
         });
 
-        const now = new Date();
-        const formattedTimestamp = `${now.toISOString().split('T')[0]} ${now.toTimeString().slice(0, 5)}`;
+        const formattedTimestamp = this.formatTimestamp12Hour();
 
         const newLog: ShareLog = {
             id: waResponse.whatsappMessageId || `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -151,7 +224,8 @@ class ShareService {
             materials: payload.materials,
             timestamp: formattedTimestamp,
             status: waResponse.success ? 'Delivered' : 'Failed',
-            channel: 'WhatsApp'
+            channel: 'WhatsApp',
+            isBulkRecipient: payload.isBulkRecipient
         };
 
         this.historyLogs = [newLog, ...this.historyLogs];
@@ -183,6 +257,69 @@ class ShareService {
         });
 
         return { success: waResponse.success, log: newLog };
+    }
+
+    private formatTimestamp12Hour(now = new Date()): string {
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+
+        let hours = now.getHours();
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const strHours = String(hours).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${strHours}:${minutes} ${ampm}`;
+    }
+
+    public addBulkCampaignLog(payload: {
+        campaignName: string;
+        materials: string[];
+        totalRecipients: number;
+        deliveredCount: number;
+        failedCount: number;
+        csvFileName?: string;
+        courseTitle?: string;
+    }): ShareLog {
+        const formattedTimestamp = this.formatTimestamp12Hour();
+
+        const campaignLog: ShareLog = {
+            id: `campaign-${Date.now()}`,
+            recipientPhone: `${payload.totalRecipients} Recipients`,
+            recipientName: payload.campaignName,
+            courseId: 'bulk',
+            courseTitle: payload.courseTitle || 'Bulk Dispatch Campaign',
+            materials: payload.materials,
+            timestamp: formattedTimestamp,
+            status: payload.failedCount === 0 ? 'Delivered' : payload.deliveredCount > 0 ? 'Sent' : 'Failed',
+            channel: 'WhatsApp',
+            isBulkCampaign: true,
+            campaignName: payload.campaignName,
+            csvFileName: payload.csvFileName,
+            totalRecipients: payload.totalRecipients,
+            deliveredCount: payload.deliveredCount,
+            failedCount: payload.failedCount
+        };
+
+        this.historyLogs = [campaignLog, ...this.historyLogs];
+        this.saveToStorage(LOGS_STORAGE_KEY, this.historyLogs);
+
+        AuditLoggerService.logEvent('BULK_CAMPAIGN_LOGGED', {
+            campaignId: campaignLog.id,
+            campaignName: payload.campaignName,
+            totalRecipients: payload.totalRecipients,
+            deliveredCount: payload.deliveredCount
+        });
+
+        return campaignLog;
+    }
+
+    public deleteHistoryLog(id: string): ShareLog[] {
+        this.historyLogs = this.historyLogs.filter(log => log.id !== id);
+        this.saveToStorage(LOGS_STORAGE_KEY, this.historyLogs);
+        return this.historyLogs;
     }
 }
 

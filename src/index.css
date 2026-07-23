@@ -54,7 +54,7 @@ body {
 }
 
 body {
-  @apply bg-bg-light text-slate-800 font-sans antialiased selection:bg-primary/20 selection:text-primary-dark;
+  @apply bg-[#0b0e14] text-slate-100 font-sans antialiased selection:bg-primary/20 selection:text-primary-dark;
 }
 
 h1, h2, h3, h4, h5, h6 {

@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
+import { initialMediaItems, type MediaItem } from '../../src/data/shareData.js';
 
 // Ensure .env.local and .env environment variables are loaded in local serverless environments
 dotenv.config({ path: '.env.local' });
@@ -63,29 +64,21 @@ export async function initializeSchema(): Promise<{ success: boolean; message: s
       END $$;
     `;
 
-    await sql`
-      DO $$ BEGIN
-        CREATE TYPE media_type_enum AS ENUM ('pdf', 'image', 'video');
-      EXCEPTION
-        WHEN duplicate_object THEN null;
-      END $$;
-    `;
-
     // 2. Create Media Items Table
     await sql`
       CREATE TABLE IF NOT EXISTS media_items (
         id VARCHAR(100) PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
-        file_name VARCHAR(255) NOT NULL,
-        file_type media_type_enum NOT NULL,
+        file_name VARCHAR(255) NOT NULL DEFAULT '',
+        file_type VARCHAR(50) NOT NULL,
         file_size VARCHAR(50) NOT NULL,
         file_size_bytes BIGINT NOT NULL DEFAULT 0,
         category VARCHAR(100) NOT NULL DEFAULT 'General',
-        url TEXT NOT NULL,
+        url TEXT NOT NULL DEFAULT '',
         blob_path TEXT,
         course_ids TEXT[] DEFAULT '{}',
         is_favorite BOOLEAN DEFAULT FALSE,
-        mime_type VARCHAR(100) NOT NULL,
+        mime_type VARCHAR(100) NOT NULL DEFAULT 'application/octet-stream',
         checksum VARCHAR(64),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -193,4 +186,152 @@ export async function initializeSchema(): Promise<{ success: boolean; message: s
       message: errorMsg
     };
   }
+}
+
+export function deriveMimeType(fileType?: string, fileNameOrTitle?: string): string {
+  const ext = (fileNameOrTitle || '').split('.').pop()?.toLowerCase() || '';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'svg') return 'image/svg+xml';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'pdf') return 'application/pdf';
+  if (ext === 'mp4') return 'video/mp4';
+  if (ext === 'doc' || ext === 'docx') return 'application/msword';
+
+  if (fileType === 'pdf') return 'application/pdf';
+  if (fileType === 'image') return 'image/png';
+  if (fileType === 'video') return 'video/mp4';
+  if (fileType === 'doc') return 'application/msword';
+
+  return 'application/octet-stream';
+}
+
+/**
+ * Get all media items from Neon PostgreSQL DB (Seeds initial items if table is empty)
+ */
+export async function getMediaItemsFromDb(): Promise<MediaItem[]> {
+  await initializeSchema();
+  const sql = getSql();
+
+  const rows = await sql`
+    SELECT id, title, file_type, category, file_size, is_favorite, course_ids, url,
+           to_char(created_at, 'YYYY-MM-DD') as upload_date
+    FROM media_items
+    ORDER BY created_at DESC
+  `;
+
+  if (rows.length === 0) {
+    // Seed initial media items
+    for (const item of initialMediaItems) {
+      const mimeType = deriveMimeType(item.fileType, item.title);
+      await sql`
+        INSERT INTO media_items (id, title, file_name, file_type, category, file_size, is_favorite, course_ids, url, mime_type)
+        VALUES (${item.id}, ${item.title}, ${item.title}, ${item.fileType}, ${item.category}, ${item.fileSize}, ${item.isFavorite}, ${item.courseIds}, ${item.previewUrl || ''}, ${mimeType})
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
+    const seededRows = await sql`
+      SELECT id, title, file_type, category, file_size, is_favorite, course_ids, url,
+             to_char(created_at, 'YYYY-MM-DD') as upload_date
+      FROM media_items
+      ORDER BY created_at DESC
+    `;
+    return mapRowsToMediaItems(seededRows);
+  }
+
+  return mapRowsToMediaItems(rows);
+}
+
+/**
+ * Add a new media item to Neon PostgreSQL
+ */
+export async function addMediaItemToDb(item: Omit<MediaItem, 'uploadDate'> & { id?: string }): Promise<MediaItem> {
+  await initializeSchema();
+  const sql = getSql();
+
+  const id = item.id || `media-${Date.now()}`;
+  const uploadDate = new Date().toISOString().split('T')[0];
+  const mimeType = deriveMimeType(item.fileType, item.title);
+
+  await sql`
+    INSERT INTO media_items (id, title, file_name, file_type, category, file_size, is_favorite, course_ids, url, mime_type)
+    VALUES (
+      ${id},
+      ${item.title},
+      ${item.title},
+      ${item.fileType},
+      ${item.category},
+      ${item.fileSize},
+      ${item.isFavorite || false},
+      ${item.courseIds || []},
+      ${item.previewUrl || ''},
+      ${mimeType}
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      title = EXCLUDED.title,
+      file_type = EXCLUDED.file_type,
+      category = EXCLUDED.category,
+      file_size = EXCLUDED.file_size,
+      is_favorite = EXCLUDED.is_favorite,
+      course_ids = EXCLUDED.course_ids,
+      url = EXCLUDED.url,
+      mime_type = EXCLUDED.mime_type
+  `;
+
+  return {
+    ...item,
+    id,
+    uploadDate,
+    isFavorite: item.isFavorite || false
+  };
+}
+
+/**
+ * Toggle favorite or update a media item in Neon PostgreSQL
+ */
+export async function updateMediaItemInDb(id: string, updates: Partial<MediaItem>): Promise<MediaItem | null> {
+  await initializeSchema();
+  const sql = getSql();
+
+  if (updates.isFavorite !== undefined) {
+    await sql`
+      UPDATE media_items
+      SET is_favorite = ${updates.isFavorite}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+    `;
+  }
+
+  const rows = await sql`
+    SELECT id, title, file_type, category, file_size, is_favorite, course_ids, url,
+           to_char(created_at, 'YYYY-MM-DD') as upload_date
+    FROM media_items
+    WHERE id = ${id}
+  `;
+
+  if (rows.length === 0) return null;
+  return mapRowsToMediaItems(rows)[0];
+}
+
+/**
+ * Delete a media item from Neon PostgreSQL
+ */
+export async function deleteMediaItemFromDb(id: string): Promise<boolean> {
+  await initializeSchema();
+  const sql = getSql();
+  const res = await sql`DELETE FROM media_items WHERE id = ${id} RETURNING id`;
+  return res.length > 0;
+}
+
+function mapRowsToMediaItems(rows: Record<string, unknown>[]): MediaItem[] {
+  return rows.map(r => ({
+    id: String(r.id),
+    title: String(r.title),
+    fileType: r.file_type as MediaItem['fileType'],
+    category: r.category as MediaItem['category'],
+    fileSize: String(r.file_size),
+    uploadDate: String(r.upload_date || new Date().toISOString().split('T')[0]),
+    isFavorite: Boolean(r.is_favorite),
+    courseIds: Array.isArray(r.course_ids) ? r.course_ids.map(String) : [],
+    previewUrl: r.url ? String(r.url) : undefined
+  }));
 }

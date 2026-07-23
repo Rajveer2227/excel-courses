@@ -16,6 +16,27 @@ import { shareService } from '../services/shareService';
 
 type WorkspaceType = 'hub' | 'quick' | 'bulk' | 'library' | 'history';
 
+function to12HourFormat(timestampStr?: string): string {
+    if (!timestampStr) return '';
+    if (/AM|PM/i.test(timestampStr)) return timestampStr;
+
+    const parts = timestampStr.split(' ');
+    if (parts.length < 2) return timestampStr;
+    const datePart = parts[0];
+    const timePart = parts[1];
+    const timeTokens = timePart.split(':');
+    let hours = parseInt(timeTokens[0], 10);
+    if (isNaN(hours)) return timestampStr;
+
+    const minutes = timeTokens[1] || '00';
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const strHours = String(hours).padStart(2, '0');
+
+    return `${datePart} ${strHours}:${minutes} ${ampm}`;
+}
+
 function Share() {
     const [searchParams] = useSearchParams();
     const courseListRef = useRef<HTMLDivElement>(null);
@@ -69,6 +90,7 @@ function Share() {
     const [showBulkPreview, setShowBulkPreview] = useState(false);
     const [isCsvCopied, setIsCsvCopied] = useState(false);
     const [uploadedCsvFileName, setUploadedCsvFileName] = useState('');
+    const [bulkCampaignName, setBulkCampaignName] = useState('');
     const [bulkMaterialSearch, setBulkMaterialSearch] = useState('');
     const [bulkMaterialCategory, setBulkMaterialCategory] = useState<string>('All Categories');
     const [dispatchDelaySec, setDispatchDelaySec] = useState<number>(1); // 1, 5, or 10 sec anti-ban delay
@@ -108,6 +130,7 @@ function Share() {
     const handleResetBulkForm = () => {
         setBulkInputText('');
         setUploadedCsvFileName('');
+        setBulkCampaignName('');
         setBulkSelectedMaterials([]);
         setBulkMaterialSearch('');
         setBulkMaterialCategory('All Categories');
@@ -154,7 +177,7 @@ function Share() {
 
     // History State
     const [historySearch, setHistorySearch] = useState('');
-    const [historyStatusFilter, setHistoryStatusFilter] = useState<'All' | 'Delivered' | 'Sent' | 'Failed'>('All');
+    const [historyStatusFilter, setHistoryStatusFilter] = useState<'All' | 'Bulk' | 'Delivered' | 'Sent' | 'Failed'>('All');
 
     // Quick Share Course Selection Handler (Multi-Select, No Auto-Material Selection)
     const handleCourseToggle = (courseId: string) => {
@@ -248,6 +271,11 @@ function Share() {
     }, [bulkInputText]);
 
     const handleSendBulkShare = async () => {
+        if (!bulkCampaignName.trim()) {
+            alert('Please specify a Campaign Name before starting the dispatch.');
+            return;
+        }
+
         if (parsedBulkContacts.valid.length === 0 || bulkSelectedMaterials.length === 0) return;
 
         setShowBulkPreview(false);
@@ -296,8 +324,9 @@ function Share() {
                 phone: initialList[i].phone,
                 name: initialList[i].name || undefined,
                 courseId: 'ALL',
-                courseTitle: 'Bulk Campaign Dispatch',
-                materials: selectedMaterialTitles
+                courseTitle: bulkCampaignName.trim(),
+                materials: selectedMaterialTitles,
+                isBulkRecipient: true
             });
 
             // Mark contact as delivered (turns green with checkmark badge)
@@ -309,6 +338,18 @@ function Share() {
         const durationSec = Math.max(0.8, Math.round((endTime - startTime) / 100) / 10);
         setCampaignStats(prev => ({ ...prev, endTime, durationSec }));
         setBulkCampaignState('completed');
+
+        // Log dedicated Bulk Campaign summary with Analytics into History Log
+        shareService.addBulkCampaignLog({
+            campaignName: bulkCampaignName.trim(),
+            materials: selectedMaterialTitles,
+            totalRecipients: initialList.length,
+            deliveredCount: initialList.length,
+            failedCount: 0,
+            csvFileName: uploadedCsvFileName || undefined,
+            courseTitle: 'Bulk Campaign Dispatch'
+        });
+
         setHistoryLogs(shareService.getHistoryLogs());
         setRecentContacts(shareService.getRecentContacts());
     };
@@ -316,6 +357,11 @@ function Share() {
     const handleCloseBulkCampaign = () => {
         setBulkCampaignState('idle');
         handleResetBulkForm();
+    };
+
+    const handleDeleteHistoryLog = (id: string) => {
+        const updated = shareService.deleteHistoryLog(id);
+        setHistoryLogs([...updated]);
     };
 
     // Media Library Handlers
@@ -346,7 +392,7 @@ function Share() {
         setSaveSuccessState('saving');
         await new Promise(res => setTimeout(res, 500));
 
-        shareService.addMediaItem({
+        await shareService.addMediaItem({
             title: uploadTitle,
             fileType: uploadFileType,
             courseIds: uploadCourseId === 'ALL' ? ['ALL'] : [uploadCourseId],
@@ -451,14 +497,51 @@ function Share() {
     }, [mediaItems, bulkMaterialSearch, bulkMaterialCategory]);
 
     const filteredHistoryLogs = useMemo(() => {
-        return historyLogs.filter(log => {
-            const matchesSearch = log.recipientPhone.includes(historySearch) ||
-                (log.recipientName && log.recipientName.toLowerCase().includes(historySearch.toLowerCase())) ||
-                log.courseTitle.toLowerCase().includes(historySearch.toLowerCase()) ||
-                log.materials.some(m => m.toLowerCase().includes(historySearch.toLowerCase()));
+        const filtered = historyLogs.filter(log => {
+            // Hide individual bulk recipient rows from the general timeline unless searching specifically
+            if (log.isBulkRecipient && !historySearch.trim()) {
+                return false;
+            }
 
-            const matchesStatus = historyStatusFilter === 'All' || log.status === historyStatusFilter;
+            const query = historySearch.trim().toLowerCase();
+            const matchesSearch = !query ||
+                log.recipientPhone.includes(query) ||
+                (log.recipientName && log.recipientName.toLowerCase().includes(query)) ||
+                (log.campaignName && log.campaignName.toLowerCase().includes(query)) ||
+                log.courseTitle.toLowerCase().includes(query) ||
+                log.materials.some(m => m.toLowerCase().includes(query));
+
+            const matchesStatus = historyStatusFilter === 'All'
+                ? true
+                : historyStatusFilter === 'Bulk'
+                ? Boolean(log.isBulkCampaign)
+                : log.status === historyStatusFilter;
+
             return matchesSearch && matchesStatus;
+        });
+
+        // Strict chronological sort (newest timestamp / ID first)
+        return [...filtered].sort((a, b) => {
+            const parseTime = (ts: string) => {
+                if (!ts) return 0;
+                const match = ts.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})(?:\s+(AM|PM))?/i);
+                if (!match) return 0;
+                const [, dateStr, hStr, mStr, ampm] = match;
+                let hours = parseInt(hStr, 10);
+                if (ampm) {
+                    if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+                    if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+                }
+                return new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${mStr}:00`).getTime();
+            };
+
+            const tA = parseTime(a.timestamp);
+            const tB = parseTime(b.timestamp);
+            if (tA !== tB) return tB - tA;
+
+            const idA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
+            const idB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
+            return idB - idA;
         });
     }, [historyLogs, historySearch, historyStatusFilter]);
 
@@ -479,6 +562,16 @@ function Share() {
         };
     }, [showBulkPreview, showUploadModal, deleteConfirmItem, sendModalState, saveSuccessState, bulkCampaignState]);
 
+    // Synchronize React state when async fetchMediaFromApi completes from Neon PostgreSQL
+    useEffect(() => {
+        return shareService.subscribeMedia(setMediaItems);
+    }, []);
+
+    // Automatically scroll window to top whenever active workspace section changes
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [activeWorkspace]);
+
 
 
     const renderFileTypeIcon = (type: MediaItem['fileType']) => {
@@ -492,9 +585,11 @@ function Share() {
 
     return (
         <div className="min-h-screen w-full bg-[#0d1117] pt-16 lg:pt-14 pb-20 relative text-white selection:bg-primary/30">
-            {/* Background depth layers */}
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.12),transparent_50%)] pointer-events-none" />
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.08),transparent_50%)] pointer-events-none" />
+            {/* Hardware-accelerated background depth layers (Jitter-free) */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 transform-gpu">
+                <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-blue-600/10 blur-[140px] transform-gpu pointer-events-none" />
+                <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[140px] transform-gpu pointer-events-none" />
+            </div>
 
             <div className="w-full max-w-7xl mx-auto px-4 md:px-6 lg:pl-36 xl:pl-40 lg:pr-6 relative z-10">
 
@@ -553,9 +648,10 @@ function Share() {
                    ════════════════════════════════════════════════════════════════ */}
                 {activeWorkspace === 'hub' && (
                     <motion.div
-                        initial={{ opacity: 0, y: 15 }}
+                        initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -15 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
                         className="grid grid-cols-1 gap-3.5 lg:gap-4 mt-2 max-w-4xl"
                     >
                         {/* Card 1: Swift Share */}
@@ -670,8 +766,9 @@ function Share() {
                    ════════════════════════════════════════════════════════════════ */}
                 {activeWorkspace === 'quick' && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.99 }}
-                        animate={{ opacity: 1, scale: 1 }}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
                         className="relative pb-16 space-y-3"
                     >
 
@@ -1010,9 +1107,10 @@ function Share() {
                    ════════════════════════════════════════════════════════════════ */}
                 {activeWorkspace === 'bulk' && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-[#161b22]/90 border border-white/20 rounded-3xl p-6 lg:p-8 shadow-2xl backdrop-blur-xl max-w-4xl mx-auto space-y-6"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        className="bg-[#161b22] border border-white/20 rounded-3xl p-6 lg:p-8 shadow-2xl max-w-4xl mx-auto space-y-6"
                     >
                         <div className="flex items-center justify-between border-b border-white/10 pb-4">
                             <div>
@@ -1020,6 +1118,31 @@ function Share() {
                                 <p className="text-xs text-slate-400">Paste numbers or upload a CSV list of prospective students</p>
                             </div>
                             <Users className="w-7 h-7 text-purple-400" />
+                        </div>
+
+                        {/* Mandatory Campaign Name Input Field */}
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2">
+                            <label className="text-xs font-black uppercase tracking-widest text-slate-200 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-purple-400" />
+                                    <span>Campaign Name <span className="text-amber-400">*</span></span>
+                                </div>
+                                <span className={cn(
+                                    "text-[11px] font-bold lowercase tracking-normal font-sans px-2.5 py-0.5 rounded-full border",
+                                    bulkCampaignName.trim()
+                                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                                        : "bg-amber-500/15 border-amber-500/30 text-amber-400 animate-pulse"
+                                )}>
+                                    {bulkCampaignName.trim() ? '✓ Campaign Named' : '⚠️ Required to start dispatch'}
+                                </span>
+                            </label>
+                            <input
+                                type="text"
+                                value={bulkCampaignName}
+                                onChange={(e) => setBulkCampaignName(e.target.value)}
+                                placeholder="e.g. Full Stack Python July 2026 Admission Drive"
+                                className="w-full bg-[#0d1117] border border-white/20 focus:border-purple-500/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 font-semibold focus:outline-none transition-all shadow-inner"
+                            />
                         </div>
 
                         <div className="space-y-3">
@@ -1243,9 +1366,15 @@ function Share() {
                         </div>
 
                         <button
-                            onClick={() => setShowBulkPreview(true)}
-                            disabled={parsedBulkContacts.valid.length === 0 || bulkSelectedMaterials.length === 0}
-                            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-base shadow-xl transition-all disabled:opacity-40"
+                            onClick={() => {
+                                if (!bulkCampaignName.trim()) {
+                                    alert('Please enter a Campaign Name before starting dispatch.');
+                                    return;
+                                }
+                                setShowBulkPreview(true);
+                            }}
+                            disabled={!bulkCampaignName.trim() || parsedBulkContacts.valid.length === 0 || bulkSelectedMaterials.length === 0}
+                            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-base shadow-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             Preview Campaign ({parsedBulkContacts.valid.length} Recipients)
                         </button>
@@ -1371,8 +1500,9 @@ function Share() {
                    ════════════════════════════════════════════════════════════════ */}
                 {activeWorkspace === 'library' && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
                         className="space-y-6"
                     >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1579,8 +1709,9 @@ function Share() {
                    ════════════════════════════════════════════════════════════════ */}
                 {activeWorkspace === 'history' && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
                         className="space-y-5"
                     >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1595,19 +1726,19 @@ function Share() {
                                 />
                             </div>
 
-                            <div className="flex gap-2">
-                                {(['All', 'Delivered', 'Sent', 'Failed'] as const).map(status => (
+                            <div className="flex gap-2 flex-wrap">
+                                {(['All', 'Bulk', 'Delivered', 'Sent', 'Failed'] as const).map(status => (
                                     <button
                                         key={status}
                                         onClick={() => setHistoryStatusFilter(status)}
                                         className={cn(
-                                            "px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                                            "px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5",
                                             historyStatusFilter === status
                                                 ? "bg-amber-500 text-slate-950 border-amber-400 shadow-md"
                                                 : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/15"
                                         )}
                                     >
-                                        {status}
+                                        {status === 'Bulk' ? 'Bulk Campaigns' : status}
                                     </button>
                                 ))}
                             </div>
@@ -1615,42 +1746,137 @@ function Share() {
 
                         <div className="space-y-3">
                             {filteredHistoryLogs.map((log) => (
-                                <div
-                                    key={log.id}
-                                    className="bg-[#161b22]/90 border border-white/15 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3"
-                                >
-                                    <div className="space-y-1 flex-1">
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-extrabold text-white text-sm">
-                                                {log.recipientName || 'Enquiry'} ({log.recipientPhone})
-                                            </span>
-                                            <span className={cn(
-                                                "px-2 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider",
-                                                log.status === 'Delivered' ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
-                                                log.status === 'Sent' ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" :
-                                                "bg-red-500/20 text-red-300 border border-red-500/30"
-                                            )}>
-                                                {log.status}
-                                            </span>
+                                log.isBulkCampaign ? (
+                                    <div
+                                        key={log.id}
+                                        className="bg-gradient-to-r from-[#191d29] via-[#161b22] to-[#191d29] border border-purple-500/35 rounded-2xl p-5 shadow-2xl space-y-3.5 relative overflow-hidden"
+                                    >
+                                        <div className="absolute top-0 right-0 w-36 h-36 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 relative z-10">
+                                            <div className="space-y-1 flex-1">
+                                                <div className="flex items-center gap-2.5 flex-wrap">
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1 shadow-sm">
+                                                        <Users className="w-3 h-3 text-purple-400" />
+                                                        <span>Bulk Campaign</span>
+                                                    </span>
+                                                    {log.csvFileName && (
+                                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 border border-purple-500/35 text-purple-300 flex items-center gap-1.5 shadow-sm">
+                                                            <FileText className="w-3 h-3 text-purple-400" />
+                                                            <span>Source CSV: <strong className="text-white font-mono">{log.csvFileName}</strong></span>
+                                                        </span>
+                                                    )}
+                                                    <h4 className="font-extrabold text-white text-base tracking-tight">
+                                                        {log.campaignName || log.recipientName}
+                                                    </h4>
+                                                    <span className={cn(
+                                                        "px-2 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider",
+                                                        log.status === 'Delivered' ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                                    )}>
+                                                        ✓ {log.status}
+                                                    </span>
+                                                </div>
+
+                                                <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-2 pt-0.5">
+                                                    <span className="text-purple-300 font-semibold">{log.courseTitle}</span>
+                                                    <span>•</span>
+                                                    <span>Sent via {log.channel} Direct API</span>
+                                                    <span>•</span>
+                                                    <span className="font-mono text-slate-300">{to12HourFormat(log.timestamp)}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Campaign Analytics Metrics Pills & Delete Button */}
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <div className="flex items-center gap-2 bg-white/5 border border-white/10 p-2 px-3.5 rounded-xl text-xs font-bold shadow-inner">
+                                                    <div className="text-center px-2 border-r border-white/10">
+                                                        <span className="block text-[9px] text-slate-400 uppercase font-black tracking-wider">Recipients</span>
+                                                        <span className="text-white font-black text-sm">{log.totalRecipients || 0}</span>
+                                                    </div>
+                                                    <div className="text-center px-2 border-r border-white/10">
+                                                        <span className="block text-[9px] text-emerald-400 uppercase font-black tracking-wider">Delivered</span>
+                                                        <span className="text-emerald-400 font-black text-sm">{log.deliveredCount || 0}</span>
+                                                    </div>
+                                                    <div className="text-center px-2">
+                                                        <span className="block text-[9px] text-slate-400 uppercase font-black tracking-wider">Failed</span>
+                                                        <span className="text-slate-300 font-black text-sm">{log.failedCount || 0}</span>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteHistoryLog(log.id);
+                                                    }}
+                                                    className="p-2.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 transition-all shrink-0 cursor-pointer shadow-sm"
+                                                    title="Delete campaign log"
+                                                >
+                                                    <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-2">
-                                            <span className="text-primary font-semibold">{log.courseTitle}</span>
-                                            <span>•</span>
-                                            <span>Sent via {log.channel}</span>
-                                            <span>•</span>
-                                            <span>{log.timestamp}</span>
-                                        </div>
-
-                                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                        {/* Campaign Materials Preview */}
+                                        <div className="pt-2 border-t border-white/10 relative z-10 flex flex-wrap items-center gap-1.5">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Materials Sent:</span>
                                             {log.materials.map((mTitle, idx) => (
-                                                <span key={idx} className="px-2 py-0.5 rounded-lg bg-white/10 text-slate-200 text-[10px] font-medium">
+                                                <span key={idx} className="px-2.5 py-1 rounded-xl bg-purple-500/15 border border-purple-500/25 text-purple-200 text-[11px] font-medium flex items-center gap-1 shadow-sm">
                                                     📄 {mTitle}
                                                 </span>
                                             ))}
                                         </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div
+                                        key={log.id}
+                                        className="bg-[#161b22]/90 border border-white/15 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3"
+                                    >
+                                        <div className="space-y-1 flex-1">
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-extrabold text-white text-sm">
+                                                    {log.recipientName || 'Enquiry'} ({log.recipientPhone})
+                                                </span>
+                                                <span className={cn(
+                                                    "px-2 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider",
+                                                    log.status === 'Delivered' ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
+                                                    log.status === 'Sent' ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" :
+                                                    "bg-red-500/20 text-red-300 border border-red-500/30"
+                                                )}>
+                                                    {log.status}
+                                                </span>
+                                            </div>
+
+                                            <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-2">
+                                                <span className="text-primary font-semibold">{log.courseTitle}</span>
+                                                <span>•</span>
+                                                <span>Sent via {log.channel}</span>
+                                                <span>•</span>
+                                                <span>{to12HourFormat(log.timestamp)}</span>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                                {log.materials.map((mTitle, idx) => (
+                                                    <span key={idx} className="px-2 py-0.5 rounded-lg bg-white/10 text-slate-200 text-[10px] font-medium">
+                                                        📄 {mTitle}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteHistoryLog(log.id);
+                                            }}
+                                            className="p-2.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 transition-all shrink-0 cursor-pointer shadow-sm self-end md:self-center"
+                                            title="Delete log entry"
+                                        >
+                                            <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                                        </button>
+                                    </div>
+                                )
                             ))}
 
                             {filteredHistoryLogs.length === 0 && (

@@ -12,7 +12,8 @@ export interface AuditLogEntry {
         | 'DISPATCH_RECIPIENT_SUCCESS'
         | 'DISPATCH_RECIPIENT_FAILED'
         | 'CANCEL_CAMPAIGN'
-        | 'DEDUPLICATE_LIST';
+        | 'DEDUPLICATE_LIST'
+        | 'BULK_CAMPAIGN_LOGGED';
     actor: string;
     details: Record<string, unknown>;
     timestamp: string;

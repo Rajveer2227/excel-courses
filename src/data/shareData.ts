@@ -20,6 +20,13 @@ export interface ShareLog {
     timestamp: string;
     status: 'Delivered' | 'Sent' | 'Failed';
     channel: 'WhatsApp';
+    isBulkCampaign?: boolean;
+    isBulkRecipient?: boolean;
+    campaignName?: string;
+    csvFileName?: string;
+    totalRecipients?: number;
+    deliveredCount?: number;
+    failedCount?: number;
 }
 
 export interface RecentContact {
@@ -138,7 +145,7 @@ export const initialShareLogs: ShareLog[] = [
         courseId: 'full-stack-python',
         courseTitle: 'Full Stack Python',
         materials: ['Full Stack Python Course Overview & Curriculum', 'Excel Computers General Admission Brochure 2026'],
-        timestamp: '2026-07-22 13:45',
+        timestamp: '2026-07-22 01:45 PM',
         status: 'Delivered',
         channel: 'WhatsApp'
     },
@@ -149,7 +156,7 @@ export const initialShareLogs: ShareLog[] = [
         courseId: 'c-programming',
         courseTitle: 'C Programming',
         materials: ['C Programming Complete Syllabus'],
-        timestamp: '2026-07-22 12:10',
+        timestamp: '2026-07-22 12:10 PM',
         status: 'Delivered',
         channel: 'WhatsApp'
     },
@@ -160,7 +167,7 @@ export const initialShareLogs: ShareLog[] = [
         courseId: 'data-analytics-powerbi',
         courseTitle: 'Data Analytics & Power BI',
         materials: ['Data Analytics & Power BI Course Syllabus'],
-        timestamp: '2026-07-21 16:30',
+        timestamp: '2026-07-21 04:30 PM',
         status: 'Sent',
         channel: 'WhatsApp'
     },
@@ -171,7 +178,7 @@ export const initialShareLogs: ShareLog[] = [
         courseId: 'tally-prime-gst',
         courseTitle: 'Tally Prime with GST',
         materials: ['Tally Prime + GST Accounting Fee Structure & Offer'],
-        timestamp: '2026-07-21 11:15',
+        timestamp: '2026-07-21 11:15 AM',
         status: 'Delivered',
         channel: 'WhatsApp'
     }

@@ -13,11 +13,11 @@ const Compare = lazy(() => import('./pages/Compare'));
 const Presentation = lazy(() => import('./pages/Presentation'));
 const Share = lazy(() => import('./pages/Share'));
 
-// Simple, minimal centered loading fallback
+// Seamless full-screen dark loading fallback
 const LoadingFallback = () => (
-    <div className="flex items-center justify-center min-h-[50vh] w-full">
+    <div className="flex items-center justify-center min-h-screen w-full bg-[#0b0e14] fixed inset-0 z-50">
         <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
             <p className="text-slate-400 text-sm font-bold tracking-widest uppercase animate-pulse">Loading...</p>
         </div>
     </div>
