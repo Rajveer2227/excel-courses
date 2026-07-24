@@ -54,6 +54,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '1.4 MB',
         uploadDate: '2026-07-15',
         isFavorite: true,
+        previewUrl: '/assets/materials/sample-syllabus.pdf'
     },
     {
         id: 'media-2',
@@ -64,6 +65,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '2.8 MB',
         uploadDate: '2026-07-18',
         isFavorite: true,
+        previewUrl: '/assets/materials/sample-syllabus.pdf'
     },
     {
         id: 'media-3',
@@ -74,6 +76,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '4.5 MB',
         uploadDate: '2026-07-01',
         isFavorite: true,
+        previewUrl: '/assets/materials/sample-syllabus.pdf'
     },
     {
         id: 'media-4',
@@ -84,6 +87,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '2.1 MB',
         uploadDate: '2026-07-10',
         isFavorite: false,
+        previewUrl: '/assets/materials/sample-syllabus.pdf'
     },
     {
         id: 'media-5',
@@ -94,6 +98,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '850 KB',
         uploadDate: '2026-07-12',
         isFavorite: false,
+        previewUrl: '/assets/materials/sample-flyer.pdf'
     },
     {
         id: 'media-6',
@@ -104,6 +109,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '3.1 MB',
         uploadDate: '2026-07-05',
         isFavorite: false,
+        previewUrl: '/assets/materials/sample-syllabus.pdf'
     },
     {
         id: 'media-7',

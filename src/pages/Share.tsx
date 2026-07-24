@@ -6,13 +6,19 @@ import {
     ArrowLeft, Search, CheckCircle2,
     Plus, Trash2, FileText, Image as ImageIcon,
     Video, FileCheck, Check, Upload,
-    X, RefreshCw, ChevronDown, ChevronUp, Sparkles, Calendar, Copy, RotateCcw, ShieldCheck
+    X, RefreshCw, ChevronDown, ChevronUp, Sparkles, Calendar, Clock, Copy, RotateCcw, ShieldCheck,
+    Tag, Settings2, Archive, Eye, LayoutDashboard, AlertCircle, Edit, MessageSquare
 } from 'lucide-react';
+import { generateQuickShareMessage } from '../utils/messageTemplates';
 import { cn } from '../lib/utils';
 import { courses } from '../data/courses';
 import { mediaCategories } from '../data/shareData';
 import type { MediaItem, ShareLog, RecentContact } from '../data/shareData';
 import { shareService } from '../services/shareService';
+import { campaignService } from '../services/campaignService';
+import { whatsAppDispatchEngine } from '../services/whatsappDispatchEngine';
+import type { Campaign, CampaignStatus, DeliverySettings, ScheduleSettings, CampaignDashboardStats } from '../data/campaignData';
+import { defaultDeliverySettings, defaultScheduleSettings, availablePresetTags } from '../data/campaignData';
 
 type WorkspaceType = 'hub' | 'quick' | 'bulk' | 'library' | 'history';
 
@@ -42,11 +48,19 @@ function Share() {
     const courseListRef = useRef<HTMLDivElement>(null);
     const allMaterialsListRef = useRef<HTMLDivElement>(null);
 
-    // Smart Workspace Context Detection
+    // Smart Workspace Context Detection — persisted to sessionStorage
     const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceType>(() => {
         const paramCourseId = searchParams.get('courseId');
-        return (paramCourseId && courses.some(c => c.id === paramCourseId)) ? 'quick' : 'hub';
+        if (paramCourseId && courses.some(c => c.id === paramCourseId)) return 'quick';
+        const saved = sessionStorage.getItem('share_activeWorkspace') as WorkspaceType | null;
+        if (saved && ['hub', 'quick', 'bulk', 'library', 'history'].includes(saved)) return saved;
+        return 'hub';
     });
+
+    // Persist activeWorkspace whenever it changes
+    useEffect(() => {
+        sessionStorage.setItem('share_activeWorkspace', activeWorkspace);
+    }, [activeWorkspace]);
 
     // Data State
     const [mediaItems, setMediaItems] = useState<MediaItem[]>(() => shareService.getAllMedia());
@@ -72,6 +86,30 @@ function Share() {
     const [sendModalState, setSendModalState] = useState<'idle' | 'sending' | 'success'>('idle');
     const [saveSuccessState, setSaveSuccessState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
+    // Quick Share WhatsApp Message Preview State
+    const [quickMessage, setQuickMessage] = useState('');
+    const [isQuickMessageCustomized, setIsQuickMessageCustomized] = useState(false);
+    const [isQuickMessageCopied, setIsQuickMessageCopied] = useState(false);
+
+    // Smart Auto-Regeneration of WhatsApp Message (only when not manually customized)
+    useEffect(() => {
+        if (isQuickMessageCustomized) return;
+
+        const selectedCourses = courses.filter(c => selectedCourseIds.includes(c.id));
+        const courseTitlesText = selectedCourses.map(c => c.title).join(', ') || '';
+        const selectedMaterialTitles = mediaItems
+            .filter(m => selectedMaterialIds.includes(m.id))
+            .map(m => m.title);
+
+        const generated = generateQuickShareMessage({
+            studentName: quickRecipientName,
+            courseName: courseTitlesText || undefined,
+            materials: selectedMaterialTitles
+        });
+
+        setQuickMessage(generated);
+    }, [quickRecipientName, selectedCourseIds, selectedMaterialIds, mediaItems, isQuickMessageCustomized]);
+
     // Course Search in Quick Share
     const [courseSearchQuery, setCourseSearchQuery] = useState('');
     const [allMaterialsSearch, setAllMaterialsSearch] = useState('');
@@ -84,16 +122,59 @@ function Share() {
         all: true
     });
 
-    // Bulk Share State
-    const [bulkInputText, setBulkInputText] = useState('');
-    const [bulkSelectedMaterials, setBulkSelectedMaterials] = useState<string[]>([]);
-    const [showBulkPreview, setShowBulkPreview] = useState(false);
-    const [isCsvCopied, setIsCsvCopied] = useState(false);
-    const [uploadedCsvFileName, setUploadedCsvFileName] = useState('');
+    // Bulk Share & Campaign Management System State
+    const [bulkTab, setBulkTab] = useState<'builder' | 'dashboard'>(() => {
+        const saved = sessionStorage.getItem('share_bulkTab') as 'builder' | 'dashboard' | null;
+        return saved === 'dashboard' ? 'dashboard' : 'builder';
+    });
+
+    // Persist bulkTab whenever it changes
+    useEffect(() => {
+        sessionStorage.setItem('share_bulkTab', bulkTab);
+    }, [bulkTab]);
+    const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'idle' | 'error'>('saved');
     const [bulkCampaignName, setBulkCampaignName] = useState('');
+    const [campaignStatus, setCampaignStatus] = useState<CampaignStatus>('Draft');
+    const [campaignNotes, setCampaignNotes] = useState('');
+    const [campaignTags, setCampaignTags] = useState<string[]>(['Admissions']);
+    const [customTagInput, setCustomTagInput] = useState('');
+    const [bulkInputText, setBulkInputText] = useState('');
+    const [uploadedCsvFileName, setUploadedCsvFileName] = useState('');
+    const [bulkSelectedMaterials, setBulkSelectedMaterials] = useState<string[]>([]);
     const [bulkMaterialSearch, setBulkMaterialSearch] = useState('');
     const [bulkMaterialCategory, setBulkMaterialCategory] = useState<string>('All Categories');
-    const [dispatchDelaySec, setDispatchDelaySec] = useState<number>(1); // 1, 5, or 10 sec anti-ban delay
+    const [dispatchDelaySec, setDispatchDelaySec] = useState<number>(1);
+    const [deliverySettings, setDeliverySettings] = useState<DeliverySettings>(defaultDeliverySettings);
+    const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings>(defaultScheduleSettings);
+    
+    // UI Modals & Accordions State
+    const [showBulkPreview, setShowBulkPreview] = useState(false);
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [showDeliveryAccordion, setShowDeliveryAccordion] = useState(false);
+    const [showDeleteConfirmCampaign, setShowDeleteConfirmCampaign] = useState<Campaign | null>(null);
+    const [showArchiveConfirmCampaign, setShowArchiveConfirmCampaign] = useState<Campaign | null>(null);
+    const [showOverrideScheduleModal, setShowOverrideScheduleModal] = useState(false);
+    const [scheduleNotification, setScheduleNotification] = useState<string | null>(null);
+    const [isCsvCopied, setIsCsvCopied] = useState(false);
+
+    // Campaigns Dashboard State
+    const [campaignsList, setCampaignsList] = useState<Campaign[]>([]);
+    const [dashboardStats, setDashboardStats] = useState<CampaignDashboardStats>({
+        totalCampaigns: 0,
+        draft: 0,
+        scheduled: 0,
+        completed: 0,
+        archived: 0,
+        totalRecipients: 0
+    });
+    const [campaignSearch, setCampaignSearch] = useState('');
+    const [campaignStatusFilter, setCampaignStatusFilter] = useState('All');
+    const [campaignTagFilter, setCampaignTagFilter] = useState('All');
+    const [includeArchived, setIncludeArchived] = useState(false);
+    const [campaignSort, setCampaignSort] = useState('newest');
+    const [campaignPage, setCampaignPage] = useState(1);
+    const [campaignTotalPages, setCampaignTotalPages] = useState(1);
 
     // Real-Time Bulk Campaign Progress State
     const [bulkCampaignState, setBulkCampaignState] = useState<'idle' | 'running' | 'completed'>('idle');
@@ -205,6 +286,10 @@ function Share() {
             alert('Please enter a valid 10-digit Indian WhatsApp mobile number.');
             return;
         }
+        if (quickRecipientName.trim().length < 2) {
+            alert('Please enter a valid Student / Parent Name (minimum 2 characters).');
+            return;
+        }
         if (selectedMaterialIds.length === 0) {
             alert('Please select at least one material to share.');
             return;
@@ -216,19 +301,16 @@ function Share() {
 
         const selectedCourses = courses.filter(c => selectedCourseIds.includes(c.id));
         const courseTitlesText = selectedCourses.map(c => c.title).join(', ') || 'General Enquiry';
-        const selectedMaterialTitles = mediaItems
-            .filter(m => selectedMaterialIds.includes(m.id))
-            .map(m => m.title);
+        const selectedMaterialObjects = mediaItems.filter(m => selectedMaterialIds.includes(m.id));
 
-        // Realistic API sending animation delay
-        await new Promise(r => setTimeout(r, 1600));
-
-        const res = await shareService.recordShareEvent({
-            phone: quickPhone,
-            name: quickRecipientName || undefined,
-            courseId: selectedCourseIds[0] || 'GENERAL',
+        // Orchestrate 5-step dispatch pipeline via Unified WhatsAppDispatchEngine
+        const res = await whatsAppDispatchEngine.executeDispatch({
+            recipientPhone: quickPhone,
+            studentName: quickRecipientName.trim(),
             courseTitle: courseTitlesText,
-            materials: selectedMaterialTitles
+            textMessage: quickMessage,
+            selectedMaterials: selectedMaterialObjects,
+            context: 'swift_share'
         });
 
         setIsSendingQuick(false);
@@ -250,6 +332,8 @@ function Share() {
             setSelectedMaterialIds([]);
             setCourseSearchQuery('');
             setAllMaterialsSearch('');
+            setIsQuickMessageCustomized(false);
+            setQuickMessage('');
             courseListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
             allMaterialsListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
@@ -312,6 +396,38 @@ function Share() {
             .filter(m => bulkSelectedMaterials.includes(m.id))
             .map(m => m.title);
 
+        // Ensure campaign exists in Neon DB and mark as Running
+        const campaignIdToUse = currentCampaignId || `cmp-${Date.now()}`;
+        if (!currentCampaignId) setCurrentCampaignId(campaignIdToUse);
+        setCampaignStatus('Running');
+
+        // Save/update campaign in Neon as Running
+        await campaignService.createOrSaveCampaign({
+            id: campaignIdToUse,
+            campaignName: bulkCampaignName.trim(),
+            status: 'Running',
+            notes: campaignNotes,
+            tags: campaignTags,
+            rawContactsText: bulkInputText,
+            csvFileName: uploadedCsvFileName || undefined,
+            materialIds: bulkSelectedMaterials,
+            materialTitles: selectedMaterialTitles,
+            deliverySettings,
+            scheduleSettings,
+            recipientStats: {
+                totalCount: initialList.length,
+                validCount: initialList.length,
+                invalidCount: recipientValidationStats.invalidCount,
+                duplicateCount: recipientValidationStats.duplicateCount,
+                skippedCount: 0,
+                deliveredCount: 0,
+                failedCount: 0
+            },
+            parsedContacts: initialList.map(r => ({ phone: r.phone, name: r.name, status: 'Pending' }))
+        });
+
+        let deliveredCount = 0;
+
         for (let i = 0; i < initialList.length; i++) {
             // Mark contact as currently sending
             setCampaignRecipients(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'sending' } : item));
@@ -330,6 +446,7 @@ function Share() {
             });
 
             // Mark contact as delivered (turns green with checkmark badge)
+            deliveredCount++;
             setCampaignRecipients(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'delivered' } : item));
             setCampaignStats(prev => ({ ...prev, delivered: prev.delivered + 1 }));
         }
@@ -338,13 +455,43 @@ function Share() {
         const durationSec = Math.max(0.8, Math.round((endTime - startTime) / 100) / 10);
         setCampaignStats(prev => ({ ...prev, endTime, durationSec }));
         setBulkCampaignState('completed');
+        setCampaignStatus('Completed');
+
+        // Mark campaign as Completed in Neon DB with final delivery stats
+        await campaignService.updateCampaignStatus(campaignIdToUse, 'Completed', {
+            recipientStats: {
+                totalCount: initialList.length,
+                validCount: initialList.length,
+                invalidCount: recipientValidationStats.invalidCount,
+                duplicateCount: recipientValidationStats.duplicateCount,
+                skippedCount: 0,
+                deliveredCount,
+                failedCount: initialList.length - deliveredCount
+            }
+        });
+
+        // Refresh dashboard stats
+        campaignService.fetchCampaignsFromApi({
+            search: campaignSearch,
+            status: campaignStatusFilter,
+            tag: campaignTagFilter,
+            isArchived: includeArchived,
+            page: campaignPage,
+            sort: campaignSort
+        }).then(res => {
+            if (res) {
+                setCampaignsList(res.campaigns);
+                setCampaignTotalPages(res.pagination.totalPages);
+            }
+        });
+        campaignService.fetchStatsFromApi().then(st => setDashboardStats(st));
 
         // Log dedicated Bulk Campaign summary with Analytics into History Log
         shareService.addBulkCampaignLog({
             campaignName: bulkCampaignName.trim(),
             materials: selectedMaterialTitles,
             totalRecipients: initialList.length,
-            deliveredCount: initialList.length,
+            deliveredCount,
             failedCount: 0,
             csvFileName: uploadedCsvFileName || undefined,
             courseTitle: 'Bulk Campaign Dispatch'
@@ -357,6 +504,136 @@ function Share() {
     const handleCloseBulkCampaign = () => {
         setBulkCampaignState('idle');
         handleResetBulkForm();
+    };
+
+    const handleLoadCampaignForEdit = (campaign: Campaign) => {
+        setCurrentCampaignId(campaign.id);
+        setBulkCampaignName(campaign.campaignName);
+        setCampaignStatus(campaign.status);
+        setCampaignNotes(campaign.notes || '');
+        setCampaignTags(campaign.tags || ['Admissions']);
+        setBulkInputText(campaign.rawContactsText || '');
+        setUploadedCsvFileName(campaign.csvFileName || '');
+        setBulkSelectedMaterials(campaign.materialIds || []);
+        setDeliverySettings(campaign.deliverySettings || defaultDeliverySettings);
+        setScheduleSettings(campaign.scheduleSettings || defaultScheduleSettings);
+        setBulkTab('builder');
+    };
+
+    const handleCreateNewCampaign = () => {
+        setCurrentCampaignId(null);
+        setBulkCampaignName('');
+        setCampaignStatus('Draft');
+        setCampaignNotes('');
+        setCampaignTags(['Admissions']);
+        setBulkInputText('');
+        setUploadedCsvFileName('');
+        setBulkSelectedMaterials([]);
+        setDeliverySettings(defaultDeliverySettings);
+        setScheduleSettings(defaultScheduleSettings);
+        setBulkTab('builder');
+    };
+
+    const handleAddTag = (tagToAdd: string) => {
+        const clean = tagToAdd.trim();
+        if (!clean) return;
+        if (!campaignTags.includes(clean)) {
+            setCampaignTags(prev => [...prev, clean]);
+        }
+        setCustomTagInput('');
+    };
+
+    const handleRemoveTag = (tagToRemove: string) => {
+        setCampaignTags(prev => prev.filter(t => t !== tagToRemove));
+    };
+
+    const handleSaveSchedule = async (schedule: ScheduleSettings) => {
+        setScheduleSettings(schedule);
+        setCampaignStatus('Scheduled');
+        setShowScheduleModal(false);
+
+        let targetId = currentCampaignId;
+        if (!targetId) {
+            targetId = `cmp-${Date.now()}`;
+            setCurrentCampaignId(targetId);
+        }
+
+        const selectedTitles = mediaItems
+            .filter(m => bulkSelectedMaterials.includes(m.id))
+            .map(m => m.title);
+
+        // 1. Create or save campaign draft in Neon DB
+        await campaignService.createOrSaveCampaign({
+            id: targetId,
+            campaignName: bulkCampaignName.trim() || 'Scheduled Campaign',
+            status: 'Scheduled',
+            notes: campaignNotes,
+            tags: campaignTags,
+            rawContactsText: bulkInputText,
+            csvFileName: uploadedCsvFileName || undefined,
+            materialIds: bulkSelectedMaterials,
+            materialTitles: selectedTitles,
+            deliverySettings,
+            scheduleSettings: schedule,
+            recipientStats: {
+                totalCount: recipientValidationStats.total,
+                validCount: recipientValidationStats.validCount,
+                invalidCount: recipientValidationStats.invalidCount,
+                duplicateCount: recipientValidationStats.duplicateCount,
+                skippedCount: 0,
+                deliveredCount: 0,
+                failedCount: 0
+            },
+            parsedContacts: recipientValidationStats.validRecipients.map(r => ({
+                phone: r.phone,
+                name: r.name,
+                status: 'Pending'
+            }))
+        });
+
+        // 2. Call schedule endpoint to set status = 'Scheduled' & scheduled_at in Neon DB
+        const scheduledRes = await campaignService.scheduleCampaign(targetId, schedule);
+        if (scheduledRes) {
+            setCurrentCampaignId(scheduledRes.id);
+            setCampaignStatus('Scheduled');
+        }
+
+        // 3. Show success notification toast
+        setScheduleNotification(`🚀 Campaign successfully scheduled for ${schedule.scheduledDate} at ${schedule.scheduledTime} (${schedule.timezone})`);
+        setTimeout(() => setScheduleNotification(null), 5000);
+
+        // 4. Refresh Dashboard view & stats
+        campaignService.fetchCampaignsFromApi({
+            search: campaignSearch,
+            status: campaignStatusFilter,
+            tag: campaignTagFilter,
+            isArchived: includeArchived,
+            page: campaignPage,
+            sort: campaignSort
+        });
+    };
+
+    const handleUnscheduleCampaign = async () => {
+        if (currentCampaignId) {
+            const unscheduled = await campaignService.unscheduleCampaign(currentCampaignId);
+            if (unscheduled) {
+                setCampaignStatus('Draft');
+                setScheduleNotification('ℹ️ Campaign schedule removed. Status set to Draft.');
+                setTimeout(() => setScheduleNotification(null), 4000);
+                campaignService.fetchCampaignsFromApi({
+                    search: campaignSearch,
+                    status: campaignStatusFilter,
+                    tag: campaignTagFilter,
+                    isArchived: includeArchived,
+                    page: campaignPage,
+                    sort: campaignSort
+                });
+            }
+        } else {
+            setCampaignStatus('Draft');
+            setScheduleNotification('ℹ️ Campaign schedule removed. Status set to Draft.');
+            setTimeout(() => setScheduleNotification(null), 4000);
+        }
     };
 
     const handleDeleteHistoryLog = (id: string) => {
@@ -495,6 +772,176 @@ function Share() {
             return matchesSearch && matchesCat;
         });
     }, [mediaItems, bulkMaterialSearch, bulkMaterialCategory]);
+
+    // Live Recipient & CSV Validation Breakdown Computation
+    const recipientValidationStats = useMemo(() => {
+        const rawLines = bulkInputText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const validRecipients: Array<{ phone: string; name?: string }> = [];
+        let validCount = 0;
+        let invalidCount = 0;
+        let duplicateCount = 0;
+        const seenPhones = new Set<string>();
+
+        rawLines.forEach(line => {
+            if (/^(phone|mobile|number|name|contact|sr|id)/i.test(line) && !/\d{10}/.test(line)) {
+                return; // Skip CSV Header
+            }
+
+            const parts = line.split(/[,;\t]/).map(p => p.trim());
+            const phoneStr = parts[0] || '';
+            const nameStr = parts[1] || undefined;
+            const digits = phoneStr.replace(/\D/g, '');
+            const phone = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits.slice(-10);
+
+            if (phone && phone.length === 10) {
+                if (seenPhones.has(phone)) {
+                    duplicateCount++;
+                } else {
+                    seenPhones.add(phone);
+                    validCount++;
+                    validRecipients.push({ phone, name: nameStr });
+                }
+            } else {
+                invalidCount++;
+            }
+        });
+
+        return {
+            total: rawLines.length,
+            validCount,
+            invalidCount,
+            duplicateCount,
+            validRecipients
+        };
+    }, [bulkInputText]);
+
+    // Campaign Auto-Save Engine (Debounced to Neon PostgreSQL API)
+    useEffect(() => {
+        if (!bulkCampaignName.trim()) return;
+
+        const selectedTitles = mediaItems
+            .filter(m => bulkSelectedMaterials.includes(m.id))
+            .map(m => m.title);
+
+        const campaignIdToSave = currentCampaignId || `cmp-${Date.now()}`;
+        if (!currentCampaignId) {
+            setCurrentCampaignId(campaignIdToSave);
+        }
+
+        campaignService.autoSaveCampaign({
+            id: campaignIdToSave,
+            campaignName: bulkCampaignName.trim(),
+            status: campaignStatus,
+            notes: campaignNotes,
+            tags: campaignTags,
+            rawContactsText: bulkInputText,
+            csvFileName: uploadedCsvFileName || undefined,
+            materialIds: bulkSelectedMaterials,
+            materialTitles: selectedTitles,
+            deliverySettings,
+            scheduleSettings,
+            recipientStats: {
+                totalCount: recipientValidationStats.total,
+                validCount: recipientValidationStats.validCount,
+                invalidCount: recipientValidationStats.invalidCount,
+                duplicateCount: recipientValidationStats.duplicateCount,
+                skippedCount: 0,
+                deliveredCount: 0,
+                failedCount: 0
+            },
+            parsedContacts: recipientValidationStats.validRecipients.map(r => ({
+                phone: r.phone,
+                name: r.name,
+                status: 'Pending'
+            }))
+        }, setAutoSaveStatus);
+    }, [
+        bulkCampaignName,
+        campaignStatus,
+        campaignNotes,
+        campaignTags,
+        bulkInputText,
+        uploadedCsvFileName,
+        bulkSelectedMaterials,
+        deliverySettings,
+        scheduleSettings,
+        recipientValidationStats
+    ]);
+
+    // Campaigns Dashboard Subscriptions & Server-Side Filtering
+    useEffect(() => {
+        const unsubCampaigns = campaignService.subscribe(list => setCampaignsList(list));
+        const unsubStats = campaignService.subscribeStats(st => setDashboardStats(st));
+        return () => {
+            unsubCampaigns();
+            unsubStats();
+        };
+    }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            campaignService.fetchCampaignsFromApi({
+                search: campaignSearch,
+                status: campaignStatusFilter,
+                tag: campaignTagFilter,
+                isArchived: includeArchived,
+                page: campaignPage,
+                sort: campaignSort
+            }).then(res => {
+                if (res) {
+                    setCampaignsList(res.campaigns);
+                    setCampaignTotalPages(res.pagination.totalPages);
+                }
+            });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [campaignSearch, campaignStatusFilter, campaignTagFilter, includeArchived, campaignSort, campaignPage]);
+
+    // Automatic Scheduled Campaign Launcher & Background Polling Engine
+    useEffect(() => {
+        const checkScheduleAndPoll = async () => {
+            // Re-fetch campaigns from Neon DB (evaluates due scheduled campaigns on backend)
+            campaignService.fetchCampaignsFromApi({
+                search: campaignSearch,
+                status: campaignStatusFilter,
+                tag: campaignTagFilter,
+                isArchived: includeArchived,
+                page: campaignPage,
+                sort: campaignSort
+            }).then(res => {
+                if (res) {
+                    setCampaignsList(res.campaigns);
+                    setCampaignTotalPages(res.pagination.totalPages);
+                }
+            });
+
+            // Check currently open campaign in Dispatch Builder
+            if (campaignStatus === 'Scheduled' && bulkCampaignState === 'idle' && scheduleSettings.scheduledDate && scheduleSettings.scheduledTime) {
+                const scheduledDateTime = new Date(`${scheduleSettings.scheduledDate}T${scheduleSettings.scheduledTime}`);
+                const now = new Date();
+
+                if (now >= scheduledDateTime) {
+                    setCampaignStatus('Running');
+                    setScheduleNotification(`⏰ Scheduled launch time reached (${scheduleSettings.scheduledTime})! Auto-launching campaign dispatch now...`);
+                    setTimeout(() => setScheduleNotification(null), 6000);
+                    handleSendBulkShare();
+                }
+            }
+        };
+
+        const interval = setInterval(checkScheduleAndPoll, 4000); // Check every 4 seconds
+        return () => clearInterval(interval);
+    }, [
+        campaignStatus,
+        bulkCampaignState,
+        scheduleSettings,
+        campaignSearch,
+        campaignStatusFilter,
+        campaignTagFilter,
+        includeArchived,
+        campaignSort,
+        campaignPage
+    ]);
 
     const filteredHistoryLogs = useMemo(() => {
         const filtered = historyLogs.filter(log => {
@@ -824,14 +1271,35 @@ function Share() {
                                         />
                                     </div>
 
-                                    {/* Optional Name Input */}
-                                    <input
-                                        type="text"
-                                        placeholder="Student / Parent Name (Optional)"
-                                        value={quickRecipientName}
-                                        onChange={(e) => setQuickRecipientName(e.target.value)}
-                                        className="w-full bg-[#0d1117] border border-white/15 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-white/30"
-                                    />
+                                    {/* Mandatory Name Input */}
+                                    <div className="space-y-1.5 pt-1">
+                                        <div className="flex items-center justify-between text-[10px] font-bold">
+                                            <span className="text-slate-300">Student / Parent Name <span className="text-amber-400 font-extrabold">*</span></span>
+                                            {quickRecipientName.trim().length >= 2 ? (
+                                                <span className="text-emerald-400 font-black flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                                    ✓ Valid Name
+                                                </span>
+                                            ) : (
+                                                <span className="text-amber-400/90 font-bold">
+                                                    {quickRecipientName.trim().length > 0 ? 'Min 2 Characters' : 'Name Required *'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Student / Parent Name *"
+                                            value={quickRecipientName}
+                                            onChange={(e) => setQuickRecipientName(e.target.value)}
+                                            className={cn(
+                                                "w-full bg-[#0d1117] border rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all shadow-inner",
+                                                quickRecipientName.trim().length >= 2
+                                                    ? "border-emerald-500/60 ring-2 ring-emerald-500/20"
+                                                    : quickRecipientName.trim().length > 0
+                                                        ? "border-amber-500/50"
+                                                        : "border-white/20 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                                            )}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* STEP 2: Searchable Course Selector Card */}
@@ -1056,6 +1524,126 @@ function Share() {
                         </div>
 
                         {/* ════════════════════════════════════════════════════════════════
+                            WHATSAPP MESSAGE PREVIEW CARD (PROFESSIONAL COMPOSER)
+                           ════════════════════════════════════════════════════════════════ */}
+                        <div className="p-5 sm:p-6 rounded-3xl bg-[#161b22]/90 border border-white/15 shadow-2xl space-y-3.5 relative overflow-hidden mt-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3.5">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                                        <MessageSquare className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
+                                            <span>WhatsApp Message Preview</span>
+                                            {isQuickMessageCustomized ? (
+                                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold uppercase tracking-wider">
+                                                    Customized
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold uppercase tracking-wider">
+                                                    Auto-Generated
+                                                </span>
+                                            )}
+                                        </h4>
+                                        <p className="text-[11px] text-slate-400 font-medium">
+                                            This personalized message will be sent along with the selected materials.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Action Controls */}
+                                <div className="flex items-center gap-2 self-end sm:self-auto">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsQuickMessageCustomized(false);
+                                            const selectedCourses = courses.filter(c => selectedCourseIds.includes(c.id));
+                                            const courseTitlesText = selectedCourses.map(c => c.title).join(', ') || '';
+                                            const selectedMaterialTitles = mediaItems
+                                                .filter(m => selectedMaterialIds.includes(m.id))
+                                                .map(m => m.title);
+                                            const autoMsg = generateQuickShareMessage({
+                                                studentName: quickRecipientName,
+                                                courseName: courseTitlesText || undefined,
+                                                materials: selectedMaterialTitles
+                                            });
+                                            setQuickMessage(autoMsg);
+                                        }}
+                                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/15 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                                        title="Reset message to default auto-generated template"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        <span>Reset Message</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (quickMessage) {
+                                                navigator.clipboard.writeText(quickMessage);
+                                                setIsQuickMessageCopied(true);
+                                                setTimeout(() => setIsQuickMessageCopied(false), 2000);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm",
+                                            isQuickMessageCopied
+                                                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                                                : "bg-white/5 hover:bg-white/15 border border-white/15 text-slate-300 hover:text-white"
+                                        )}
+                                        title="Copy generated message to clipboard"
+                                    >
+                                        {isQuickMessageCopied ? <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" /> : <Copy className="w-3.5 h-3.5" />}
+                                        <span>{isQuickMessageCopied ? 'Copied!' : 'Copy Message'}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Validation Guidance Alerts */}
+                            <div className="space-y-2">
+                                {quickRecipientName.trim().length < 2 && (
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                                        <span>Enter student name to generate personalized message.</span>
+                                    </div>
+                                )}
+                                {selectedCourseIds.length === 0 && (
+                                    <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-medium flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4 shrink-0 text-blue-400" />
+                                        <span>Select a course to generate a personalized message.</span>
+                                    </div>
+                                )}
+                                {selectedMaterialIds.length === 0 && (
+                                    <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-medium flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4 shrink-0 text-purple-400" />
+                                        <span>Select at least one material to complete the message.</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Professional Multiline Editor */}
+                            <div className="relative">
+                                <textarea
+                                    rows={9}
+                                    value={quickMessage}
+                                    onChange={(e) => {
+                                        setQuickMessage(e.target.value);
+                                        setIsQuickMessageCustomized(true);
+                                    }}
+                                    placeholder="Generated WhatsApp message preview will appear here..."
+                                    className="w-full bg-[#0d1117] border border-white/15 rounded-2xl p-4 text-xs font-medium leading-relaxed text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20 transition-all resize-y min-h-[200px] shadow-inner font-sans"
+                                />
+
+                                {/* Live Character Count */}
+                                <div className="mt-2 flex items-center justify-end">
+                                    <span className="text-[11px] font-mono text-slate-400 font-bold bg-black/40 px-3 py-1 rounded-full border border-white/10 shadow-sm">
+                                        {quickMessage.length} characters
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ════════════════════════════════════════════════════════════════
                             STEP 4: STICKY BOTTOM ACTION BAR (ALWAYS VISIBLE)
                            ════════════════════════════════════════════════════════════════ */}
                         <div className="fixed bottom-4 left-4 right-4 lg:left-36 xl:left-40 lg:right-6 z-40">
@@ -1084,8 +1672,13 @@ function Share() {
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
                                     onClick={handleSendQuickShare}
-                                    disabled={isSendingQuick || quickPhone.replace(/\D/g, '').length !== 10 || selectedMaterialIds.length === 0}
-                                    className="px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-blue-600 hover:from-primary-dark hover:to-blue-700 text-white font-extrabold text-sm shadow-xl shadow-primary/30 transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                                    disabled={
+                                        isSendingQuick ||
+                                        quickPhone.replace(/\D/g, '').length !== 10 ||
+                                        quickRecipientName.trim().length < 2 ||
+                                        selectedMaterialIds.length === 0
+                                    }
+                                    className="px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-blue-600 hover:from-primary-dark hover:to-blue-700 text-white font-extrabold text-sm shadow-xl shadow-primary/30 transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer"
                                 >
                                     {isSendingQuick ? (
                                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1103,392 +1696,945 @@ function Share() {
                 )}
 
                 {/* ════════════════════════════════════════════════════════════════
-                    3. BULK SHARE WORKSPACE
+                    3. BULK SHARE WORKSPACE & CAMPAIGN MANAGEMENT SYSTEM
                    ════════════════════════════════════════════════════════════════ */}
                 {activeWorkspace === 'bulk' && (
                     <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="bg-[#161b22] border border-white/20 rounded-3xl p-6 lg:p-8 shadow-2xl max-w-4xl mx-auto space-y-6"
+                        className="bg-[#161b22] border border-white/20 rounded-3xl p-6 lg:p-8 shadow-2xl max-w-5xl mx-auto space-y-6"
                     >
-                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        {/* Workspace Header Bar with Tabs & Auto-Save */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-4">
                             <div>
-                                <h3 className="text-xl font-bold text-white">Bulk Mobile Dispatch</h3>
-                                <p className="text-xs text-slate-400">Paste numbers or upload a CSV list of prospective students</p>
+                                <h3 className="text-xl font-bold text-white flex items-center gap-2.5">
+                                    <span>WhatsApp Campaign Engine</span>
+                                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/35">
+                                        PRO ENGINE
+                                    </span>
+                                </h3>
+                                <p className="text-xs text-slate-400">Configure, schedule, and manage bulk campaigns backed by Neon DB</p>
                             </div>
-                            <Users className="w-7 h-7 text-purple-400" />
-                        </div>
 
-                        {/* Mandatory Campaign Name Input Field */}
-                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-slate-200 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-purple-400" />
-                                    <span>Campaign Name <span className="text-amber-400">*</span></span>
-                                </div>
-                                <span className={cn(
-                                    "text-[11px] font-bold lowercase tracking-normal font-sans px-2.5 py-0.5 rounded-full border",
-                                    bulkCampaignName.trim()
-                                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-                                        : "bg-amber-500/15 border-amber-500/30 text-amber-400 animate-pulse"
-                                )}>
-                                    {bulkCampaignName.trim() ? '✓ Campaign Named' : '⚠️ Required to start dispatch'}
-                                </span>
-                            </label>
-                            <input
-                                type="text"
-                                value={bulkCampaignName}
-                                onChange={(e) => setBulkCampaignName(e.target.value)}
-                                placeholder="e.g. Full Stack Python July 2026 Admission Drive"
-                                className="w-full bg-[#0d1117] border border-white/20 focus:border-purple-500/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 font-semibold focus:outline-none transition-all shadow-inner"
-                            />
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-300">
-                                    Paste Mobile Numbers or Upload CSV
-                                </label>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    {/* Uploaded CSV File Name Badge */}
-                                    {uploadedCsvFileName && (
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold shadow-md">
-                                            <FileText className="w-3.5 h-3.5 text-purple-400" />
-                                            <span className="truncate max-w-[160px]" title={uploadedCsvFileName}>{uploadedCsvFileName}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setUploadedCsvFileName('');
-                                                    setBulkInputText('');
-                                                }}
-                                                className="ml-0.5 p-0.5 hover:bg-purple-500/30 rounded-full text-purple-300 hover:text-white transition-colors"
-                                                title="Remove uploaded file"
-                                            >
-                                                <X className="w-3.5 h-3.5 text-purple-300 stroke-[2.5]" />
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Upload CSV Button */}
-                                    <label className="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-md">
-                                        <Upload className="w-3.5 h-3.5" />
-                                        <span>Upload CSV</span>
-                                        <input
-                                            type="file"
-                                            accept=".csv,.txt"
-                                            onChange={handleCsvFileUpload}
-                                            className="hidden"
-                                        />
-                                    </label>
-
-                                    {/* Copy CSV Format Button */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-2xl">
                                     <button
                                         type="button"
-                                        onClick={handleCopyCsvFormat}
-                                        className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md"
-                                        title="Copy standardized CSV template format for AI"
-                                    >
-                                        {isCsvCopied ? (
-                                            <>
-                                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                                <span className="text-emerald-400 font-extrabold">Copied!</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy className="w-3.5 h-3.5 text-slate-300" />
-                                                <span>Copy CSV Format</span>
-                                            </>
+                                        onClick={() => setBulkTab('builder')}
+                                        className={cn(
+                                            "px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer",
+                                            bulkTab === 'builder'
+                                                ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                                                : "text-slate-400 hover:text-white"
                                         )}
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        <span>Dispatch Builder</span>
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBulkTab('dashboard')}
+                                        className={cn(
+                                            "px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer",
+                                            bulkTab === 'dashboard'
+                                                ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                                                : "text-slate-400 hover:text-white"
+                                        )}
+                                    >
+                                        <LayoutDashboard className="w-3.5 h-3.5" />
+                                        <span>Campaigns Dashboard</span>
+                                    </button>
+                                </div>
 
-                                    {/* Reset Button */}
-                                    {(bulkInputText.trim() || uploadedCsvFileName || bulkSelectedMaterials.length > 0) && (
-                                        <button
-                                            type="button"
-                                            onClick={handleResetBulkForm}
-                                            className="px-3.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-md"
-                                            title="Reset form, uploaded CSV file, and selected materials"
-                                        >
-                                            <RotateCcw className="w-3.5 h-3.5 text-red-400 stroke-[2.5]" />
-                                            <span>Reset</span>
-                                        </button>
+                                {/* Auto-Save Status Indicator */}
+                                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold shadow-inner">
+                                    {autoSaveStatus === 'saving' ? (
+                                        <>
+                                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                            <span className="text-amber-300 font-semibold">Saving...</span>
+                                        </>
+                                    ) : autoSaveStatus === 'saved' ? (
+                                        <>
+                                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                            <span className="text-emerald-300 font-semibold">● Saved</span>
+                                        </>
+                                    ) : (
+                                        <span className="text-slate-400">Draft</span>
                                     )}
                                 </div>
                             </div>
-                            <textarea
-                                rows={5}
-                                value={bulkInputText}
-                                onChange={(e) => setBulkInputText(e.target.value)}
-                                placeholder="9823045678, 9422411223&#10;9890088776..."
-                                className="w-full bg-white/10 border border-white/20 rounded-2xl p-4 text-white placeholder:text-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                            />
                         </div>
 
-                        {bulkInputText.trim() && (
-                            <div className="space-y-3">
-                                {parsedBulkContacts.duplicate.length > 0 && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -6 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="flex flex-wrap items-center justify-between gap-3 bg-amber-500/15 border border-amber-500/30 px-4 py-2.5 rounded-2xl shadow-lg"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-                                            <span className="text-xs font-bold text-amber-200">
-                                                {parsedBulkContacts.duplicate.length} duplicate mobile {parsedBulkContacts.duplicate.length === 1 ? 'entry' : 'entries'} detected
-                                            </span>
+                        {/* TAB 1: DISPATCH BUILDER */}
+                        {bulkTab === 'builder' && (
+                            <div className="space-y-6">
+                                {/* Scheduled Campaign Header Banner */}
+                                {campaignStatus === 'Scheduled' && (
+                                    <div className="p-4.5 rounded-2xl bg-gradient-to-r from-blue-900/40 via-purple-900/30 to-slate-900/60 border border-blue-500/40 shadow-xl flex flex-wrap items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-3 rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/30 shadow-inner shrink-0">
+                                                <Calendar className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="text-sm font-extrabold text-white">Campaign Launch Scheduled</h4>
+                                                    <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                                        Scheduled
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-blue-200 mt-0.5">
+                                                    Persisted in Neon PostgreSQL. Launch date: <strong className="text-white">{scheduleSettings.scheduledDate || 'Not set'}</strong> at <strong className="text-white">{scheduleSettings.scheduledTime || 'Not set'}</strong> ({scheduleSettings.timezone})
+                                                </p>
+                                            </div>
                                         </div>
-
-                                        <label className="flex items-center gap-2 cursor-pointer bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-xl text-xs font-extrabold transition-all shadow-md">
-                                            <input
-                                                type="checkbox"
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        handleDeduplicateBulkText();
-                                                    }
-                                                }}
-                                                className="w-3.5 h-3.5 accent-amber-500 rounded cursor-pointer"
-                                            />
-                                            <span>Remove Duplicates</span>
-                                        </label>
-                                    </motion.div>
-                                )}
-
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                                        <span className="text-xl font-black text-emerald-400 block">{parsedBulkContacts.valid.length}</span>
-                                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Valid</span>
-                                    </div>
-                                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center relative group">
-                                        <span className="text-xl font-black text-amber-400 block">{parsedBulkContacts.duplicate.length}</span>
-                                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Duplicates</span>
-                                        {parsedBulkContacts.duplicate.length > 0 && (
+                                        <div className="flex items-center gap-2">
                                             <button
                                                 type="button"
-                                                onClick={handleDeduplicateBulkText}
-                                                className="mt-1.5 px-2.5 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/40 text-amber-300 text-[10px] font-extrabold transition-all shadow-sm inline-flex items-center gap-1"
-                                                title="Click to remove duplicate numbers"
+                                                onClick={() => setShowScheduleModal(true)}
+                                                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 border border-white/15 transition-all shadow-md cursor-pointer"
                                             >
-                                                <Trash2 className="w-3 h-3 text-amber-400" />
-                                                <span>Clean</span>
+                                                <Edit className="w-3.5 h-3.5" />
+                                                <span>Edit Schedule</span>
                                             </button>
-                                        )}
+                                            <button
+                                                type="button"
+                                                onClick={handleUnscheduleCampaign}
+                                                className="px-3.5 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 font-bold text-xs flex items-center gap-1.5 border border-red-500/30 transition-all shadow-md cursor-pointer"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                                <span>Remove Schedule</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-center">
-                                        <span className="text-xl font-black text-red-400 block">{parsedBulkContacts.invalid.length}</span>
-                                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Invalid</span>
+                                )}
+
+                                {/* Mandatory Campaign Name Input Field */}
+                                <div className="bg-white/5 border border-white/10 p-4.5 rounded-2xl space-y-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <label className="text-xs font-black uppercase tracking-widest text-slate-200 flex items-center gap-2">
+                                            <Sparkles className="w-4 h-4 text-purple-400" />
+                                            <span>Campaign Name <span className="text-amber-400">*</span></span>
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                                Status: {campaignStatus}
+                                            </span>
+                                            <span className={cn(
+                                                "text-[11px] font-bold lowercase tracking-normal font-sans px-2.5 py-0.5 rounded-full border",
+                                                bulkCampaignName.trim()
+                                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                                                    : "bg-amber-500/15 border-amber-500/30 text-amber-400 animate-pulse"
+                                            )}>
+                                                {bulkCampaignName.trim() ? '✓ Campaign Named' : '⚠️ Required to start dispatch'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={bulkCampaignName}
+                                        onChange={(e) => setBulkCampaignName(e.target.value)}
+                                        placeholder="e.g. Full Stack Python July 2026 Admission Drive"
+                                        className="w-full bg-[#0d1117] border border-white/20 focus:border-purple-500/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 font-semibold focus:outline-none transition-all shadow-inner"
+                                    />
+
+                                    {/* Campaign Tags & Internal Notes */}
+                                    <div className="pt-2 border-t border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Tags Manager */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                                                <Tag className="w-3.5 h-3.5 text-purple-400" />
+                                                <span>Campaign Tags:</span>
+                                            </label>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {campaignTags.map(tag => (
+                                                    <span key={tag} className="px-2.5 py-1 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[11px] font-bold flex items-center gap-1">
+                                                        <span>{tag}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveTag(tag)}
+                                                            className="hover:text-white transition-colors"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        type="text"
+                                                        value={customTagInput}
+                                                        onChange={(e) => setCustomTagInput(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                handleAddTag(customTagInput);
+                                                            }
+                                                        }}
+                                                        placeholder="+ New Tag"
+                                                        className="bg-[#0d1117] border border-white/15 rounded-xl px-2.5 py-1 text-[11px] text-white placeholder:text-slate-500 focus:outline-none w-24"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1 pt-1">
+                                                <span className="text-[10px] text-slate-500">Presets:</span>
+                                                {availablePresetTags.filter(t => !campaignTags.includes(t)).slice(0, 4).map(preset => (
+                                                    <button
+                                                        key={preset}
+                                                        type="button"
+                                                        onClick={() => handleAddTag(preset)}
+                                                        className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white border border-white/10 transition-colors"
+                                                    >
+                                                        + {preset}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Internal Notes */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                                                <FileText className="w-3.5 h-3.5 text-purple-400" />
+                                                <span>Internal Campaign Notes:</span>
+                                            </label>
+                                            <textarea
+                                                rows={2}
+                                                value={campaignNotes}
+                                                onChange={(e) => setCampaignNotes(e.target.value)}
+                                                placeholder="Internal notes for team (not sent to recipients)..."
+                                                className="w-full bg-[#0d1117] border border-white/20 focus:border-purple-500/80 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
+
+                                {/* Mobile Numbers / CSV Section */}
+                                <div className="space-y-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <label className="text-xs font-black uppercase tracking-widest text-slate-300">
+                                            Paste Mobile Numbers or Upload CSV
+                                        </label>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {uploadedCsvFileName && (
+                                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold shadow-md">
+                                                    <FileText className="w-3.5 h-3.5 text-purple-400" />
+                                                    <span className="truncate max-w-[160px]" title={uploadedCsvFileName}>{uploadedCsvFileName}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setUploadedCsvFileName('');
+                                                            setBulkInputText('');
+                                                        }}
+                                                        className="ml-0.5 p-0.5 hover:bg-purple-500/30 rounded-full text-purple-300 hover:text-white transition-colors"
+                                                        title="Remove uploaded file"
+                                                    >
+                                                        <X className="w-3.5 h-3.5 text-purple-300 stroke-[2.5]" />
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            <label className="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-md">
+                                                <Upload className="w-3.5 h-3.5" />
+                                                <span>Upload CSV</span>
+                                                <input
+                                                    type="file"
+                                                    accept=".csv,.txt"
+                                                    onChange={handleCsvFileUpload}
+                                                    className="hidden"
+                                                />
+                                            </label>
+
+                                            <button
+                                                type="button"
+                                                onClick={handleCopyCsvFormat}
+                                                className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md"
+                                                title="Copy standardized CSV template format for AI"
+                                            >
+                                                {isCsvCopied ? (
+                                                    <>
+                                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                                        <span className="text-emerald-400 font-extrabold">Copied!</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Copy className="w-3.5 h-3.5 text-slate-300" />
+                                                        <span>Copy CSV Format</span>
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {(bulkInputText.trim() || uploadedCsvFileName || bulkSelectedMaterials.length > 0) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleResetBulkForm}
+                                                    className="px-3.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-md"
+                                                    title="Reset form, uploaded CSV file, and selected materials"
+                                                >
+                                                    <RotateCcw className="w-3.5 h-3.5 text-red-400 stroke-[2.5]" />
+                                                    <span>Reset</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <textarea
+                                        rows={5}
+                                        value={bulkInputText}
+                                        onChange={(e) => setBulkInputText(e.target.value)}
+                                        placeholder="9823045678, 9422411223&#10;9890088776..."
+                                        className="w-full bg-white/10 border border-white/20 rounded-2xl p-4 text-white placeholder:text-slate-500 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                                    />
+                                </div>
+
+                                {/* Live Recipient Validation Breakdown */}
+                                {bulkInputText.trim() && (
+                                    <div className="space-y-3">
+                                        {parsedBulkContacts.duplicate.length > 0 && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -6 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="flex flex-wrap items-center justify-between gap-3 bg-amber-500/15 border border-amber-500/30 px-4 py-2.5 rounded-2xl shadow-lg"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                                                    <span className="text-xs font-bold text-amber-200">
+                                                        {parsedBulkContacts.duplicate.length} duplicate mobile {parsedBulkContacts.duplicate.length === 1 ? 'entry' : 'entries'} detected
+                                                    </span>
+                                                </div>
+
+                                                <label className="flex items-center gap-2 cursor-pointer bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-xl text-xs font-extrabold transition-all shadow-md">
+                                                    <input
+                                                        type="checkbox"
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                handleDeduplicateBulkText();
+                                                            }
+                                                        }}
+                                                        className="w-3.5 h-3.5 accent-amber-500 rounded cursor-pointer"
+                                                    />
+                                                    <span>Remove Duplicates</span>
+                                                </label>
+                                            </motion.div>
+                                        )}
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                                                <span className="text-lg font-black text-emerald-400 block">{recipientValidationStats.validCount}</span>
+                                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Valid Contacts</span>
+                                            </div>
+                                            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center">
+                                                <span className="text-lg font-black text-rose-400 block">{recipientValidationStats.invalidCount}</span>
+                                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Invalid Length</span>
+                                            </div>
+                                            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
+                                                <span className="text-lg font-black text-amber-400 block">{recipientValidationStats.duplicateCount}</span>
+                                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Duplicates</span>
+                                            </div>
+                                            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
+                                                <span className="text-lg font-black text-white block">{recipientValidationStats.total}</span>
+                                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Total Rows</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Advanced Delivery Settings Accordion */}
+                                <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDeliveryAccordion(!showDeliveryAccordion)}
+                                        className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                                            <Settings2 className="w-4 h-4 text-purple-400" />
+                                            <span>Advanced Delivery Settings & Anti-Ban Throttling</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-mono text-purple-300 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-lg">
+                                                Batch: {deliverySettings.batchSize} | Pause: {deliverySettings.batchPauseSeconds}s
+                                            </span>
+                                            {showDeliveryAccordion ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                        </div>
+                                    </button>
+
+                                    {showDeliveryAccordion && (
+                                        <div className="p-4 pt-0 border-t border-white/10 space-y-4 text-xs">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-3">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[11px] font-bold text-slate-300">Message Delay Mode:</label>
+                                                    <select
+                                                        value={deliverySettings.delayMode}
+                                                        onChange={(e) => {
+                                                            const mode = e.target.value as DeliverySettings['delayMode'];
+                                                            const secs = mode === '1' ? 1 : mode === '5' ? 5 : mode === '10' ? 10 : 3;
+                                                            setDispatchDelaySec(secs);
+                                                            setDeliverySettings(prev => ({ ...prev, delayMode: mode, delaySeconds: secs }));
+                                                        }}
+                                                        className="w-full bg-[#0d1117] border border-white/20 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none"
+                                                    >
+                                                        <option value="1">1 Sec (Fast Dispatch)</option>
+                                                        <option value="5">5 Sec (Recommended Anti-Ban)</option>
+                                                        <option value="10">10 Sec (Ultra Safe)</option>
+                                                        <option value="random">Random Delay Range (1s-5s)</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[11px] font-bold text-slate-300">Batch Size (Recipients/Batch):</label>
+                                                    <input
+                                                        type="number"
+                                                        value={deliverySettings.batchSize}
+                                                        onChange={(e) => setDeliverySettings(prev => ({ ...prev, batchSize: Math.max(1, parseInt(e.target.value, 10) || 50) }))}
+                                                        className="w-full bg-[#0d1117] border border-white/20 rounded-xl px-3 py-2 text-white font-mono focus:outline-none"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[11px] font-bold text-slate-300">Pause Between Batches (Sec):</label>
+                                                    <input
+                                                        type="number"
+                                                        value={deliverySettings.batchPauseSeconds}
+                                                        onChange={(e) => setDeliverySettings(prev => ({ ...prev, batchPauseSeconds: Math.max(0, parseInt(e.target.value, 10) || 300) }))}
+                                                        className="w-full bg-[#0d1117] border border-white/20 rounded-xl px-3 py-2 text-white font-mono focus:outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-white/10 flex flex-wrap items-center gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={deliverySettings.retryFailed}
+                                                        onChange={(e) => setDeliverySettings(prev => ({ ...prev, retryFailed: e.target.checked }))}
+                                                        className="accent-purple-500 rounded"
+                                                    />
+                                                    <span>Retry Failed Messages</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={deliverySettings.businessHoursOnly}
+                                                        onChange={(e) => setDeliverySettings(prev => ({ ...prev, businessHoursOnly: e.target.checked }))}
+                                                        className="accent-purple-500 rounded"
+                                                    />
+                                                    <span>Send Business Hours Only (09:00 - 18:00)</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={deliverySettings.skipWeekends}
+                                                        onChange={(e) => setDeliverySettings(prev => ({ ...prev, skipWeekends: e.target.checked }))}
+                                                        className="accent-purple-500 rounded"
+                                                    />
+                                                    <span>Skip Weekends & Sundays</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Select Course Materials */}
+                                <div className="space-y-4 pt-2">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-3">
+                                        <div>
+                                            <h4 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                                                <FolderOpen className="w-4 h-4 text-purple-400" />
+                                                <span>Select Materials to Dispatch</span>
+                                            </h4>
+                                            <p className="text-[11px] text-slate-400">Choose single or multiple media documents to send to each contact</p>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <div className="relative">
+                                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                <input
+                                                    type="text"
+                                                    value={bulkMaterialSearch}
+                                                    onChange={(e) => setBulkMaterialSearch(e.target.value)}
+                                                    placeholder="Search materials..."
+                                                    className="bg-white/5 border border-white/15 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/80 w-44"
+                                                />
+                                            </div>
+                                            <select
+                                                value={bulkMaterialCategory}
+                                                onChange={(e) => setBulkMaterialCategory(e.target.value)}
+                                                className="bg-white/5 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none cursor-pointer"
+                                            >
+                                                {mediaCategories.map(cat => (
+                                                    <option key={cat} value={cat} className="bg-[#161b22] text-white">{cat}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Media Items Grid Selection */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                                        {filteredBulkMaterials.map(item => {
+                                            const isSelected = bulkSelectedMaterials.includes(item.id);
+                                            return (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setBulkSelectedMaterials(prev =>
+                                                            prev.includes(item.id)
+                                                                ? prev.filter(id => id !== item.id)
+                                                                : [...prev, item.id]
+                                                        );
+                                                    }}
+                                                    className={cn(
+                                                        "p-3.5 rounded-2xl border text-left flex items-start justify-between gap-3 transition-all cursor-pointer",
+                                                        isSelected
+                                                            ? "bg-purple-600/20 border-purple-500/80 shadow-lg shadow-purple-500/10"
+                                                            : "bg-white/5 border-white/10 hover:bg-white/10"
+                                                    )}
+                                                >
+                                                    <div className="space-y-1 truncate pr-2">
+                                                        <div className="flex items-center gap-2">
+                                                            {renderFileTypeIcon(item.fileType)}
+                                                            <span className="font-extrabold text-white text-xs truncate">{item.title}</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                                                            <span className="px-2 py-0.2 rounded-md bg-white/10 font-bold">{item.category}</span>
+                                                            <span>•</span>
+                                                            <span>{item.fileSize}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className={cn(
+                                                        "w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-all",
+                                                        isSelected ? "bg-purple-500 border-purple-400 text-white" : "border-white/20 text-transparent"
+                                                    )}>
+                                                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Actions & Live Summary Bar */}
+                                <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="text-xs text-slate-400">
+                                        <span>Selected: <strong className="text-purple-300 font-bold">{bulkSelectedMaterials.length} Materials</strong></span>
+                                        <span className="mx-2">•</span>
+                                        <span>Recipients: <strong className="text-emerald-300 font-bold">{parsedBulkContacts.valid.length} Valid</strong></span>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCampaignStatus('Draft');
+                                                setAutoSaveStatus('saving');
+                                                setTimeout(() => setAutoSaveStatus('saved'), 500);
+                                            }}
+                                            className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
+                                        >
+                                            Save Draft
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowScheduleModal(true)}
+                                            className={cn(
+                                                "px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border",
+                                                campaignStatus === 'Scheduled'
+                                                    ? "bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/40 text-blue-300 shadow-md shadow-blue-500/10"
+                                                    : "bg-purple-500/20 hover:bg-purple-500/30 border-purple-500/40 text-purple-300"
+                                            )}
+                                        >
+                                            <Calendar className="w-4 h-4" />
+                                            <span>{campaignStatus === 'Scheduled' ? 'Edit Schedule' : 'Schedule Launch'}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={!bulkCampaignName.trim() || parsedBulkContacts.valid.length === 0 || bulkSelectedMaterials.length === 0}
+                                            onClick={() => {
+                                                if (campaignStatus === 'Scheduled') {
+                                                    setShowOverrideScheduleModal(true);
+                                                } else {
+                                                    setShowBulkPreview(true);
+                                                }
+                                            }}
+                                            className={cn(
+                                                "px-6 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-lg transition-all cursor-pointer",
+                                                (bulkCampaignName.trim() && parsedBulkContacts.valid.length > 0 && bulkSelectedMaterials.length > 0)
+                                                    ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30"
+                                                    : "bg-white/10 text-slate-500 cursor-not-allowed"
+                                            )}
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                            <span>{campaignStatus === 'Scheduled' ? 'Launch Now (Override)' : 'Preview & Launch'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Preview & Launch Modal */}
+                                {showBulkPreview && (
+                                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+                                        <div className="bg-[#161b22] border border-white/20 rounded-3xl p-6 max-w-lg w-full space-y-6 shadow-2xl">
+                                            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                                    <Sparkles className="w-5 h-5 text-purple-400" />
+                                                    <span>Campaign Dispatch Preview</span>
+                                                </h3>
+                                                <button onClick={() => setShowBulkPreview(false)} className="text-slate-400 hover:text-white">
+                                                    <X className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                            <div className="space-y-3 text-xs text-slate-300">
+                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3.5">
+                                                    <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                                                        <span className="text-slate-400 font-medium">Campaign Name:</span>
+                                                        <span className="font-extrabold text-white text-xs">
+                                                            {bulkCampaignName}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                                                        <span className="text-slate-400 font-medium">Valid Contact Count:</span>
+                                                        <span className="font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg text-xs">
+                                                            {parsedBulkContacts.valid.length} Recipients
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="text-slate-400 font-bold block mb-2 text-[11px] uppercase tracking-wider">
+                                                            Selected Materials ({selectedBulkMaterialObjects.length}):
+                                                        </span>
+                                                        <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                                                            {selectedBulkMaterialObjects.map((item) => (
+                                                                <div
+                                                                    key={item.id}
+                                                                    className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-between text-xs font-bold text-white shadow-sm"
+                                                                >
+                                                                    <div className="flex items-center gap-2 truncate pr-2">
+                                                                        {renderFileTypeIcon(item.fileType)}
+                                                                        <span className="truncate">{item.title}</span>
+                                                                    </div>
+                                                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 shrink-0">
+                                                                        {item.category}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* WhatsApp Anti-Ban Delay Mode */}
+                                                    <div className="border-t border-white/10 pt-3 space-y-2">
+                                                        <label className="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                                                            <span className="flex items-center gap-1.5 text-white">
+                                                                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                                                <span>WhatsApp Anti-Ban Throttle:</span>
+                                                            </span>
+                                                            <span className="text-emerald-400 font-mono text-[10px] bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
+                                                                {deliverySettings.delayMode === 'random' ? 'Random Delay (1s-5s)' : `${dispatchDelaySec}s Delay`}
+                                                            </span>
+                                                        </label>
+
+                                                        <div className="text-[10px] text-slate-400 font-medium flex items-center justify-between pt-1">
+                                                            <span>Est. Duration: <strong className="text-purple-300 font-mono text-[11px]">~{Math.round(parsedBulkContacts.valid.length * dispatchDelaySec)}s</strong></span>
+                                                            <span className="text-emerald-400 font-semibold">✓ Prevents WhatsApp bans</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3 text-xs font-bold">
+                                                <button
+                                                    onClick={() => setShowBulkPreview(false)}
+                                                    className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={handleSendBulkShare}
+                                                    className="flex-1 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                                                >
+                                                    <Send className="w-4 h-4" />
+                                                    <span>Confirm & Launch</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        <div className="space-y-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-300">
-                                    Select Materials for Campaign
-                                </label>
+                        {/* TAB 2: CAMPAIGNS DASHBOARD & MANAGEMENT SYSTEM */}
+                        {bulkTab === 'dashboard' && (
+                            <div className="space-y-6">
+                                {/* Statistics Grid Cards */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center">
+                                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-wider block">Total Campaigns</span>
+                                        <span className="text-xl font-black text-white">{dashboardStats.totalCampaigns}</span>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-center">
+                                        <span className="text-purple-300 text-[10px] font-black uppercase tracking-wider block">Drafts</span>
+                                        <span className="text-xl font-black text-purple-300">{dashboardStats.draft}</span>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-center">
+                                        <span className="text-blue-300 text-[10px] font-black uppercase tracking-wider block">Scheduled</span>
+                                        <span className="text-xl font-black text-blue-300">{dashboardStats.scheduled}</span>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                                        <span className="text-emerald-300 text-[10px] font-black uppercase tracking-wider block">Completed</span>
+                                        <span className="text-xl font-black text-emerald-300">{dashboardStats.completed}</span>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
+                                        <span className="text-amber-300 text-[10px] font-black uppercase tracking-wider block">Archived</span>
+                                        <span className="text-xl font-black text-amber-300">{dashboardStats.archived}</span>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center">
+                                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-wider block">Recipients</span>
+                                        <span className="text-xl font-black text-white">{dashboardStats.totalRecipients}</span>
+                                    </div>
+                                </div>
 
-                                {/* Search Bar & Category Filter */}
-                                <div className="flex items-center gap-2">
-                                    {/* Search Input with Red X */}
-                                    <div className="relative flex-1 sm:w-52">
-                                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search materials..."
-                                            value={bulkMaterialSearch}
-                                            onChange={(e) => setBulkMaterialSearch(e.target.value)}
-                                            className="w-full bg-white/10 border border-white/20 rounded-xl py-1.5 pl-8 pr-7 text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                                        />
-                                        {bulkMaterialSearch && (
+                                {/* Search, Filter & Sort Controls */}
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 border border-white/10 p-4 rounded-2xl">
+                                    <div className="flex flex-wrap items-center gap-3 flex-1">
+                                        <div className="relative flex-1 max-w-xs">
+                                            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                value={campaignSearch}
+                                                onChange={(e) => {
+                                                    setCampaignSearch(e.target.value);
+                                                    setCampaignPage(1);
+                                                }}
+                                                placeholder="Search campaign name, tag, status..."
+                                                className="w-full bg-[#0d1117] border border-white/15 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500"
+                                            />
+                                            {campaignSearch && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setCampaignSearch('');
+                                                        setCampaignPage(1);
+                                                    }}
+                                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-md transition-colors cursor-pointer"
+                                                    title="Clear search query"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <select
+                                            value={campaignStatusFilter}
+                                            onChange={(e) => {
+                                                setCampaignStatusFilter(e.target.value);
+                                                setCampaignPage(1);
+                                            }}
+                                            className="bg-[#0d1117] border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none cursor-pointer"
+                                        >
+                                            <option value="All">All Statuses</option>
+                                            <option value="Draft">Draft</option>
+                                            <option value="Ready">Ready</option>
+                                            <option value="Scheduled">Scheduled</option>
+                                            <option value="Running">Running</option>
+                                            <option value="Completed">Completed</option>
+                                            <option value="Archived">Archived</option>
+                                        </select>
+
+                                        <select
+                                            value={campaignTagFilter}
+                                            onChange={(e) => {
+                                                setCampaignTagFilter(e.target.value);
+                                                setCampaignPage(1);
+                                            }}
+                                            className="bg-[#0d1117] border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none cursor-pointer"
+                                        >
+                                            <option value="All">All Tags</option>
+                                            {availablePresetTags.map(tag => (
+                                                <option key={tag} value={tag}>#{tag}</option>
+                                            ))}
+                                        </select>
+
+                                        <select
+                                            value={campaignSort}
+                                            onChange={(e) => {
+                                                setCampaignSort(e.target.value);
+                                                setCampaignPage(1);
+                                            }}
+                                            className="bg-[#0d1117] border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none cursor-pointer"
+                                        >
+                                            <option value="newest">Newest First</option>
+                                            <option value="oldest">Oldest First</option>
+                                            <option value="name">Name (A-Z)</option>
+                                            <option value="recipients">Recipients Count</option>
+                                            <option value="status">Status</option>
+                                        </select>
+
+                                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300">
+                                            <input
+                                                type="checkbox"
+                                                checked={includeArchived}
+                                                onChange={(e) => {
+                                                    setIncludeArchived(e.target.checked);
+                                                    setCampaignPage(1);
+                                                }}
+                                                className="accent-purple-500 rounded cursor-pointer"
+                                            />
+                                            <span>Show Archived</span>
+                                        </label>
+
+                                        {(campaignSearch || campaignStatusFilter !== 'All' || campaignTagFilter !== 'All' || includeArchived) && (
                                             <button
                                                 type="button"
-                                                onClick={() => setBulkMaterialSearch('')}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all flex items-center justify-center"
-                                                title="Clear search"
+                                                onClick={() => {
+                                                    setCampaignSearch('');
+                                                    setCampaignStatusFilter('All');
+                                                    setCampaignTagFilter('All');
+                                                    setIncludeArchived(false);
+                                                    setCampaignPage(1);
+                                                }}
+                                                className="px-2.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                title="Reset all filters"
                                             >
-                                                <X className="w-3.5 h-3.5 text-red-400 stroke-[2.5]" />
+                                                <RotateCcw className="w-3 h-3" />
+                                                <span>Reset Filters</span>
                                             </button>
                                         )}
                                     </div>
 
-                                    {/* Category Dropdown */}
-                                    <div className="relative shrink-0">
-                                        <select
-                                            value={bulkMaterialCategory}
-                                            onChange={(e) => setBulkMaterialCategory(e.target.value)}
-                                            className="appearance-none bg-[#0d1117] border border-white/20 rounded-xl pl-3 pr-8 py-1.5 text-white text-xs font-bold focus:outline-none focus:border-purple-500/60 shadow-xl cursor-pointer hover:border-white/40 transition-colors"
-                                        >
-                                            {mediaCategories.map(cat => (
-                                                <option key={cat} value={cat} className="bg-[#161b22] text-white py-1">{cat}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none stroke-[2.5]" />
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleCreateNewCampaign}
+                                        className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        <span>New Campaign</span>
+                                    </button>
                                 </div>
-                            </div>
 
-                            {/* Campaign Materials Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1">
-                                {filteredBulkMaterials.map((item) => {
-                                    const isSelected = bulkSelectedMaterials.includes(item.id);
-                                    return (
+                                {/* Campaigns Cards List */}
+                                <div className="space-y-3">
+                                    {campaignsList.map(campaign => (
                                         <div
-                                            key={item.id}
-                                            onClick={() => {
-                                                setBulkSelectedMaterials(prev =>
-                                                    prev.includes(item.id) ? prev.filter(i => i !== item.id) : [...prev, item.id]
-                                                );
-                                            }}
-                                            className={cn(
-                                                "p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all text-xs font-bold",
-                                                isSelected
-                                                    ? "bg-purple-600 text-white border-purple-500 shadow-lg"
-                                                    : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
-                                            )}
+                                            key={campaign.id}
+                                            className="bg-[#0d1117] border border-white/15 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4"
                                         >
-                                            <div className="flex items-center gap-2 truncate pr-2">
-                                                {renderFileTypeIcon(item.fileType)}
-                                                <span className="truncate">{item.title}</span>
-                                            </div>
-                                            {isSelected && <Check className="w-4 h-4 shrink-0" />}
-                                        </div>
-                                    );
-                                })}
-
-                                {filteredBulkMaterials.length === 0 && (
-                                    <div className="col-span-2 text-center py-6 text-slate-400 text-xs font-medium">
-                                        No materials found matching your search.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                if (!bulkCampaignName.trim()) {
-                                    alert('Please enter a Campaign Name before starting dispatch.');
-                                    return;
-                                }
-                                setShowBulkPreview(true);
-                            }}
-                            disabled={!bulkCampaignName.trim() || parsedBulkContacts.valid.length === 0 || bulkSelectedMaterials.length === 0}
-                            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-base shadow-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                            Preview Campaign ({parsedBulkContacts.valid.length} Recipients)
-                        </button>
-
-                        {showBulkPreview && (
-                            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
-                                <div className="bg-[#161b22] border border-white/20 rounded-3xl p-6 max-w-lg w-full space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-lg font-bold text-white">Campaign Dispatch Preview</h3>
-                                        <button onClick={() => setShowBulkPreview(false)} className="text-slate-400 hover:text-white">
-                                            <X className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3 text-xs text-slate-300">
-                                        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3.5">
-                                            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                                                <span className="text-slate-400 font-medium">Valid Contact Count:</span>
-                                                <span className="font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg text-xs">
-                                                    {parsedBulkContacts.valid.length} Recipients
-                                                </span>
-                                            </div>
-
-                                            <div>
-                                                <span className="text-slate-400 font-bold block mb-2 text-[11px] uppercase tracking-wider">
-                                                    Selected Campaign Materials ({selectedBulkMaterialObjects.length}):
-                                                </span>
-                                                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                                                    {selectedBulkMaterialObjects.map((item) => (
-                                                        <div
-                                                            key={item.id}
-                                                            className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-between text-xs font-bold text-white shadow-sm"
-                                                        >
-                                                            <div className="flex items-center gap-2 truncate pr-2">
-                                                                {renderFileTypeIcon(item.fileType)}
-                                                                <span className="truncate">{item.title}</span>
-                                                            </div>
-                                                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 shrink-0">
-                                                                {item.category}
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* WhatsApp Anti-Ban Dispatch Delay Control */}
-                                            <div className="border-t border-white/10 pt-3 space-y-2">
-                                                <label className="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
-                                                    <span className="flex items-center gap-1.5 text-white">
-                                                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                                                        <span>WhatsApp Anti-Ban Message Delay:</span>
+                                            <div className="space-y-2 flex-1">
+                                                <div className="flex items-center gap-2.5 flex-wrap">
+                                                    <h4 className="font-extrabold text-white text-base">{campaign.campaignName}</h4>
+                                                    <span className={cn(
+                                                        "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border",
+                                                        campaign.status === 'Completed' ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
+                                                        campaign.status === 'Scheduled' ? "bg-blue-500/20 text-blue-300 border-blue-500/30" :
+                                                        campaign.status === 'Archived' ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
+                                                        "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                                    )}>
+                                                        {campaign.status}
                                                     </span>
-                                                    <span className="text-emerald-400 font-mono text-[10px] bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
-                                                        Safe Protection Mode
-                                                    </span>
-                                                </label>
-
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {[
-                                                        { sec: 1, label: '1 Sec', badge: 'Fast Dispatch' },
-                                                        { sec: 5, label: '5 Sec', badge: 'Recommended' },
-                                                        { sec: 10, label: '10 Sec', badge: 'Max Protection' }
-                                                    ].map(opt => (
-                                                        <button
-                                                            key={opt.sec}
-                                                            type="button"
-                                                            onClick={() => setDispatchDelaySec(opt.sec)}
-                                                            className={cn(
-                                                                "p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all text-xs font-bold gap-0.5 cursor-pointer",
-                                                                dispatchDelaySec === opt.sec
-                                                                    ? "bg-purple-600/30 border-purple-500 text-white shadow-lg shadow-purple-500/20"
-                                                                    : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white"
-                                                            )}
-                                                        >
-                                                            <span className="text-sm font-extrabold">{opt.label}</span>
-                                                            <span className={cn(
-                                                                "text-[9px] px-1.5 py-0.2 rounded-full font-bold",
-                                                                dispatchDelaySec === opt.sec ? "bg-purple-500 text-white" : "bg-white/10 text-slate-400"
-                                                            )}>
-                                                                {opt.badge}
-                                                            </span>
-                                                        </button>
+                                                    {campaign.tags.map(t => (
+                                                        <span key={t} className="px-2 py-0.5 rounded-lg bg-white/10 text-slate-300 text-[10px] font-bold">
+                                                            #{t}
+                                                        </span>
                                                     ))}
                                                 </div>
 
-                                                <div className="text-[10px] text-slate-400 font-medium flex items-center justify-between pt-1">
-                                                    <span>Est. Duration: <strong className="text-purple-300 font-mono text-[11px]">~{Math.round(parsedBulkContacts.valid.length * dispatchDelaySec)}s</strong></span>
-                                                    <span className="text-emerald-400 font-semibold">✓ Prevents WhatsApp spam bans</span>
+                                                <div className="text-xs text-slate-400 flex flex-wrap items-center gap-3">
+                                                    <span>Recipients: <strong className="text-white">{campaign.recipientStats?.validCount || 0}</strong></span>
+                                                    <span>•</span>
+                                                    <span>Materials: <strong className="text-purple-300">{campaign.materialIds?.length || 0}</strong></span>
+                                                    <span>•</span>
+                                                    <span>Created: <strong className="text-slate-300">{new Date(campaign.createdAt).toLocaleDateString()}</strong></span>
                                                 </div>
+
+                                                {campaign.status === 'Scheduled' && campaign.scheduleSettings?.scheduledDate && (
+                                                    <div className="text-xs text-blue-300 font-semibold flex items-center gap-1.5 mt-1 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-xl w-fit">
+                                                        <Calendar className="w-3.5 h-3.5" />
+                                                        <span>Scheduled for {campaign.scheduleSettings.scheduledDate} at {campaign.scheduleSettings.scheduledTime} ({campaign.scheduleSettings.timezone || 'IST'})</span>
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            <div className="flex items-center justify-between border-t border-white/10 pt-2.5 text-[11px]">
-                                                <span className="text-slate-400 font-medium">Dispatch Channel:</span>
-                                                <span className="font-extrabold text-blue-400 flex items-center gap-1.5">
-                                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                    WhatsApp Direct API
-                                                </span>
+                                            {/* Action Buttons */}
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        handleLoadCampaignForEdit(campaign);
+                                                        setShowScheduleModal(true);
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                    title="Schedule or edit campaign launch time"
+                                                >
+                                                    <Calendar className="w-3.5 h-3.5" />
+                                                    <span>{campaign.status === 'Scheduled' ? 'Edit Schedule' : 'Schedule'}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleLoadCampaignForEdit(campaign)}
+                                                    className="px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                    title="Edit campaign settings"
+                                                >
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                    <span>Edit</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        const duplicated = await campaignService.duplicateCampaign(campaign.id);
+                                                        if (duplicated) handleLoadCampaignForEdit(duplicated);
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                    title="Duplicate campaign"
+                                                >
+                                                    <Copy className="w-3.5 h-3.5" />
+                                                    <span>Duplicate</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowArchiveConfirmCampaign(campaign)}
+                                                    className="p-2 rounded-xl bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition-all cursor-pointer"
+                                                    title={campaign.isArchived ? "Unarchive campaign" : "Archive campaign"}
+                                                >
+                                                    <Archive className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowDeleteConfirmCampaign(campaign)}
+                                                    className="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all cursor-pointer"
+                                                    title="Soft delete campaign"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-3 text-xs font-bold">
-                                        <button
-                                            onClick={() => setShowBulkPreview(false)}
-                                            className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={handleSendBulkShare}
-                                            className="flex-1 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition-all"
-                                        >
-                                            <Send className="w-4 h-4" />
-                                            <span>Confirm & Dispatch</span>
-                                        </button>
-                                    </div>
+                                    ))}
+
+                                    {campaignsList.length === 0 && (
+                                        <div className="text-center py-12 text-slate-500 text-xs">
+                                            No campaigns found matching your filters. Click <strong>+ New Campaign</strong> to create one.
+                                        </div>
+                                    )}
+
+                                    {/* Pagination Controls */}
+                                    {campaignsList.length > 0 && (
+                                        <div className="flex items-center justify-between pt-4 border-t border-white/10 text-xs">
+                                            <span className="text-slate-400">
+                                                Page <strong className="text-white">{campaignPage}</strong> of <strong className="text-white">{campaignTotalPages}</strong>
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    disabled={campaignPage <= 1}
+                                                    onClick={() => setCampaignPage(prev => Math.max(1, prev - 1))}
+                                                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 cursor-pointer"
+                                                >
+                                                    Previous
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={campaignPage >= campaignTotalPages}
+                                                    onClick={() => setCampaignPage(prev => Math.min(campaignTotalPages, prev + 1))}
+                                                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 cursor-pointer"
+                                                >
+                                                    Next
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -2292,6 +3438,286 @@ function Share() {
                             )}
                         </motion.div>
                     </motion.div>
+                )}
+
+                {/* Scheduling Modal */}
+                {showScheduleModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <div className="bg-[#161b22] border border-white/20 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-purple-400" />
+                                    <span>Schedule Campaign Launch</span>
+                                </h3>
+                                <button onClick={() => setShowScheduleModal(false)} className="text-slate-400 hover:text-white">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4 text-xs">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">Schedule Type:</label>
+                                    <div className="relative">
+                                        <select
+                                            value={scheduleSettings.type}
+                                            onChange={(e) => setScheduleSettings(prev => ({ ...prev, type: e.target.value as any }))}
+                                            className="w-full bg-[#0d1117] border border-white/20 rounded-xl pl-3.5 pr-10 py-2.5 text-white font-semibold appearance-none focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                                        >
+                                            <option value="one_time">One-Time Launch</option>
+                                            <option value="recurring">Recurring Schedule</option>
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 text-slate-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                {scheduleSettings.type === 'recurring' && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Recurring Frequency:</label>
+                                        <div className="relative">
+                                            <select
+                                                value={scheduleSettings.recurringPattern}
+                                                onChange={(e) => setScheduleSettings(prev => ({ ...prev, recurringPattern: e.target.value as any }))}
+                                                className="w-full bg-[#0d1117] border border-white/20 rounded-xl pl-3.5 pr-10 py-2.5 text-white font-semibold appearance-none focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                                            >
+                                                <option value="daily">Daily</option>
+                                                <option value="weekly">Weekly</option>
+                                                <option value="monthly">Monthly</option>
+                                            </select>
+                                            <ChevronDown className="w-4 h-4 text-slate-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Date:</label>
+                                        <div className="relative">
+                                            <input
+                                                type="date"
+                                                value={scheduleSettings.scheduledDate}
+                                                onChange={(e) => setScheduleSettings(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                                                className="w-full bg-[#0d1117] border border-white/20 rounded-xl pl-3.5 pr-10 py-2.5 text-white font-mono scheme-dark cursor-pointer focus:outline-none focus:border-purple-500 transition-colors"
+                                            />
+                                            <Calendar className="w-4 h-4 text-white absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Time:</label>
+                                        <div className="relative">
+                                            <input
+                                                type="time"
+                                                value={scheduleSettings.scheduledTime}
+                                                onChange={(e) => setScheduleSettings(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                                                className="w-full bg-[#0d1117] border border-white/20 rounded-xl pl-3.5 pr-10 py-2.5 text-white font-mono scheme-dark cursor-pointer focus:outline-none focus:border-purple-500 transition-colors"
+                                            />
+                                            <Clock className="w-4 h-4 text-white absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">Timezone:</label>
+                                    <div className="relative">
+                                        <select
+                                            value={scheduleSettings.timezone}
+                                            onChange={(e) => setScheduleSettings(prev => ({ ...prev, timezone: e.target.value }))}
+                                            className="w-full bg-[#0d1117] border border-white/20 rounded-xl pl-3.5 pr-10 py-2.5 text-white font-semibold appearance-none focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                                        >
+                                            <option value="Asia/Kolkata (IST)">Asia/Kolkata (IST +5:30)</option>
+                                            <option value="UTC">UTC (GMT +0:00)</option>
+                                            <option value="America/New_York (EST)">America/New_York (EST -5:00)</option>
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 text-slate-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/10">
+                                {campaignStatus === 'Scheduled' ? (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            await handleUnscheduleCampaign();
+                                            setShowScheduleModal(false);
+                                        }}
+                                        className="py-2.5 px-3.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 font-bold text-xs border border-red-500/30 transition-colors cursor-pointer"
+                                    >
+                                        Remove Schedule
+                                    </button>
+                                ) : <div />}
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowScheduleModal(false)}
+                                        className="py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!scheduleSettings.scheduledDate || !scheduleSettings.scheduledTime}
+                                        onClick={() => handleSaveSchedule(scheduleSettings)}
+                                        className="py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-extrabold text-xs shadow-lg shadow-purple-600/30 transition-all cursor-pointer"
+                                    >
+                                        {campaignStatus === 'Scheduled' ? 'Update Schedule' : 'Confirm Schedule'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Override Schedule Confirmation Modal */}
+                {showOverrideScheduleModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <div className="bg-[#161b22] border border-blue-500/40 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/30 shrink-0">
+                                    <Calendar className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-extrabold text-white">Launch Scheduled Campaign Now?</h3>
+                                    <p className="text-xs text-slate-300 mt-0.5">
+                                        This campaign is currently scheduled for <strong className="text-white">{scheduleSettings.scheduledDate}</strong> at <strong className="text-white">{scheduleSettings.scheduledTime}</strong> ({scheduleSettings.timezone}).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-200">
+                                ⚠️ Launching now will immediately open the preview window and dispatch messages, overriding the saved schedule.
+                            </div>
+
+                            <div className="flex items-center gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOverrideScheduleModal(false)}
+                                    className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors cursor-pointer"
+                                >
+                                    Keep Schedule
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowOverrideScheduleModal(false);
+                                        setShowBulkPreview(true);
+                                    }}
+                                    className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs shadow-lg shadow-purple-600/30 transition-all cursor-pointer"
+                                >
+                                    Override & Launch Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Floating Schedule Notification Toast */}
+                <AnimatePresence>
+                    {scheduleNotification && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                            className="fixed top-6 right-6 z-50 max-w-md p-4 rounded-2xl bg-gradient-to-r from-purple-900/95 via-blue-900/95 to-slate-900/95 border border-purple-500/50 text-white shadow-2xl backdrop-blur-xl flex items-center gap-3"
+                        >
+                            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
+                                <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 text-xs font-semibold">
+                                {scheduleNotification}
+                            </div>
+                            <button onClick={() => setScheduleNotification(null)} className="text-white/60 hover:text-white p-1 cursor-pointer">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Soft Delete Confirmation Modal */}
+                {showDeleteConfirmCampaign && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <div className="bg-[#161b22] border border-red-500/30 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-2xl bg-red-500/20 text-red-400">
+                                    <AlertCircle className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-extrabold text-white">Soft Delete Campaign?</h3>
+                                    <p className="text-xs text-slate-400">Campaign will be hidden from view. It remains recoverable in database audit logs.</p>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-purple-300">
+                                {showDeleteConfirmCampaign.campaignName}
+                            </div>
+
+                            <div className="flex items-center gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteConfirmCampaign(null)}
+                                    className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-bold text-xs"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        await campaignService.deleteCampaign(showDeleteConfirmCampaign.id);
+                                        setShowDeleteConfirmCampaign(null);
+                                    }}
+                                    className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-lg shadow-red-600/30"
+                                >
+                                    Delete Campaign
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Archive Confirmation Modal */}
+                {showArchiveConfirmCampaign && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <div className="bg-[#161b22] border border-amber-500/30 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400">
+                                    <Archive className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-extrabold text-white">
+                                        {showArchiveConfirmCampaign.isArchived ? 'Unarchive Campaign?' : 'Archive Campaign?'}
+                                    </h3>
+                                    <p className="text-xs text-slate-400">
+                                        {showArchiveConfirmCampaign.isArchived
+                                            ? 'Restores campaign to active campaign list.'
+                                            : 'Moves campaign to archived records.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-amber-300">
+                                {showArchiveConfirmCampaign.campaignName}
+                            </div>
+
+                            <div className="flex items-center gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowArchiveConfirmCampaign(null)}
+                                    className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-bold text-xs"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        await campaignService.archiveCampaign(showArchiveConfirmCampaign.id);
+                                        setShowArchiveConfirmCampaign(null);
+                                    }}
+                                    className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-lg shadow-amber-600/30"
+                                >
+                                    {showArchiveConfirmCampaign.isArchived ? 'Confirm Unarchive' : 'Confirm Archive'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>
