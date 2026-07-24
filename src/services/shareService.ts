@@ -41,9 +41,20 @@ class ShareService {
         try {
             const res = await fetch('/api/media');
             if (res.ok) {
-                const data: MediaItem[] = await res.json();
-                if (Array.isArray(data)) {
-                    this.mediaItems = data;
+                const json = await res.json();
+                if (json.success && Array.isArray(json.mediaItems)) {
+                    if (json.mediaItems.length === 0) {
+                        // Seed database if empty
+                        await fetch('/api/media/seed', { method: 'POST' });
+                        const reFetch = await fetch('/api/media');
+                        const seededJson = await reFetch.json();
+                        if (seededJson.success && Array.isArray(seededJson.mediaItems)) {
+                            this.mediaItems = seededJson.mediaItems;
+                            this.notifyMediaListeners();
+                            return;
+                        }
+                    }
+                    this.mediaItems = json.mediaItems;
                     this.notifyMediaListeners();
                 }
             }
@@ -72,7 +83,7 @@ class ShareService {
         }
     }
 
-    // --- MEDIA ITEMS SERVICE (NEON POSTGRESQL BACKED) ---
+    // --- MEDIA ITEMS SERVICE (VERCEL BLOB + NEON POSTGRESQL BACKED) ---
     public getAllMedia(): MediaItem[] {
         return [...this.mediaItems];
     }
@@ -86,7 +97,7 @@ class ShareService {
             return [];
         }
         return this.mediaItems.filter(item => 
-            item.courseIds.includes(courseId)
+            item.courseIds.includes(courseId) || item.courseIds.includes('ALL')
         );
     }
 
@@ -100,16 +111,71 @@ class ShareService {
         );
         this.notifyMediaListeners();
 
-        // Async dispatch to Neon REST API
-        fetch('/api/media', {
-            method: 'PUT',
+        return this.getAllMedia();
+    }
+
+    public async uploadMediaFile(params: {
+        title: string;
+        fileType: 'pdf' | 'image' | 'video';
+        category: 'Syllabus' | 'Flyer' | 'Brochure' | 'General';
+        fileSize?: string;
+        courseIds?: string[];
+        fileData: string;
+        fileName: string;
+    }): Promise<MediaItem> {
+        const res = await fetch('/api/media/upload', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, isFavorite: newStatus })
-        }).catch(err => {
-            console.error('Failed to sync favorite status to Neon DB', err);
+            body: JSON.stringify(params)
         });
 
-        return this.getAllMedia();
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+            throw new Error(json.error || 'Failed to upload media file to Vercel Blob');
+        }
+
+        const createdItem: MediaItem = json.mediaItem;
+        this.mediaItems = [createdItem, ...this.mediaItems.filter(m => m.id !== createdItem.id)];
+        this.notifyMediaListeners();
+
+        AuditLoggerService.logEvent('UPLOAD_MEDIA', {
+            id: createdItem.id,
+            title: createdItem.title,
+            category: createdItem.category,
+            fileType: createdItem.fileType,
+            blobUrl: createdItem.previewUrl
+        });
+
+        return createdItem;
+    }
+
+    public async replaceMediaFile(params: {
+        mediaId: string;
+        title?: string;
+        fileData: string;
+        fileName: string;
+    }): Promise<MediaItem> {
+        const res = await fetch('/api/media/replace', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+            throw new Error(json.error || 'Failed to replace media file');
+        }
+
+        const updatedItem: MediaItem = json.mediaItem;
+        this.mediaItems = this.mediaItems.map(m => m.id === params.mediaId ? { ...m, ...updatedItem } : m);
+        this.notifyMediaListeners();
+
+        AuditLoggerService.logEvent('REPLACE_MEDIA', {
+            id: params.mediaId,
+            newBlobUrl: updatedItem.previewUrl
+        });
+
+        return updatedItem;
     }
 
     public async addMediaItem(item: Omit<MediaItem, 'id' | 'uploadDate'>): Promise<MediaItem> {
@@ -123,23 +189,6 @@ class ShareService {
         this.mediaItems = [newItem, ...this.mediaItems];
         this.notifyMediaListeners();
 
-        // Await dispatch to Neon REST API
-        try {
-            const res = await fetch('/api/media', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newItem)
-            });
-            if (res.ok) {
-                const created: MediaItem = await res.json();
-                this.mediaItems = this.mediaItems.map(m => m.id === newItem.id ? created : m);
-                this.notifyMediaListeners();
-            }
-        } catch (err) {
-            console.error('Failed to save new media item to Neon DB', err);
-        }
-
-        // Audit Logging
         AuditLoggerService.logEvent('UPLOAD_MEDIA', {
             id: newItem.id,
             title: newItem.title,
@@ -157,11 +206,13 @@ class ShareService {
         this.mediaItems = this.mediaItems.filter(item => item.id !== id);
         this.notifyMediaListeners();
 
-        // Async dispatch to Neon REST API
-        fetch(`/api/media?id=${encodeURIComponent(id)}`, {
-            method: 'DELETE'
+        // Async dispatch to Neon & Vercel Blob REST API
+        fetch('/api/media/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mediaId: id })
         }).catch(err => {
-            console.error('Failed to delete media item from Neon DB', err);
+            console.error('Failed to delete media item from Vercel Blob & Neon DB', err);
         });
 
         // Audit Logging

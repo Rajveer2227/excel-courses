@@ -54,7 +54,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '1.4 MB',
         uploadDate: '2026-07-15',
         isFavorite: true,
-        previewUrl: '/assets/materials/sample-syllabus.pdf'
+        previewUrl: '/assets/materials/c-programming.pdf'
     },
     {
         id: 'media-2',
@@ -65,7 +65,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '2.8 MB',
         uploadDate: '2026-07-18',
         isFavorite: true,
-        previewUrl: '/assets/materials/sample-syllabus.pdf'
+        previewUrl: '/assets/materials/full-stack-python.pdf'
     },
     {
         id: 'media-3',
@@ -76,7 +76,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '4.5 MB',
         uploadDate: '2026-07-01',
         isFavorite: true,
-        previewUrl: '/assets/materials/sample-syllabus.pdf'
+        previewUrl: '/assets/materials/excel-computers-brochure-2026.pdf'
     },
     {
         id: 'media-4',
@@ -87,18 +87,18 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '2.1 MB',
         uploadDate: '2026-07-10',
         isFavorite: false,
-        previewUrl: '/assets/materials/sample-syllabus.pdf'
+        previewUrl: '/assets/materials/data-analytics-powerbi.pdf'
     },
     {
         id: 'media-5',
         title: 'C++ Programming Fast-Track Flyer',
-        fileType: 'image',
+        fileType: 'pdf',
         courseIds: ['cpp-programming'],
         category: 'Flyer',
         fileSize: '850 KB',
         uploadDate: '2026-07-12',
         isFavorite: false,
-        previewUrl: '/assets/materials/sample-flyer.pdf'
+        previewUrl: '/assets/materials/cpp-programming.pdf'
     },
     {
         id: 'media-6',
@@ -109,17 +109,18 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '3.1 MB',
         uploadDate: '2026-07-05',
         isFavorite: false,
-        previewUrl: '/assets/materials/sample-syllabus.pdf'
+        previewUrl: '/assets/materials/full-stack-web-development-mern.pdf'
     },
     {
         id: 'media-7',
         title: 'AI & Machine Learning Internship Special Flyer',
-        fileType: 'image',
+        fileType: 'pdf',
         courseIds: ['ai-machine-learning'],
         category: 'Flyer',
         fileSize: '1.1 MB',
         uploadDate: '2026-07-19',
         isFavorite: true,
+        previewUrl: '/assets/materials/ai-machine-learning.pdf'
     },
     {
         id: 'media-8',
@@ -130,6 +131,7 @@ export const initialMediaItems: MediaItem[] = [
         fileSize: '920 KB',
         uploadDate: '2026-07-14',
         isFavorite: false,
+        previewUrl: '/assets/materials/tally-prime-gst.pdf'
     },
     {
         id: 'media-9',

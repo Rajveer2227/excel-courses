@@ -7,6 +7,7 @@ export interface AuditLogEntry {
     id: string;
     eventType: 
         | 'UPLOAD_MEDIA'
+        | 'REPLACE_MEDIA'
         | 'DELETE_MEDIA'
         | 'CREATE_CAMPAIGN'
         | 'DISPATCH_RECIPIENT_SUCCESS'

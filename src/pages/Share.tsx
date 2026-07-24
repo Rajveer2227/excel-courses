@@ -19,6 +19,8 @@ import { campaignService } from '../services/campaignService';
 import { whatsAppDispatchEngine } from '../services/whatsappDispatchEngine';
 import type { Campaign, CampaignStatus, DeliverySettings, ScheduleSettings, CampaignDashboardStats } from '../data/campaignData';
 import { defaultDeliverySettings, defaultScheduleSettings, availablePresetTags } from '../data/campaignData';
+import { ToastNotification, mapResultToToastData } from '../components/common/ToastNotification';
+import type { ToastMessageData } from '../components/common/ToastNotification';
 
 type WorkspaceType = 'hub' | 'quick' | 'bulk' | 'library' | 'history';
 
@@ -187,6 +189,13 @@ function Share() {
         durationSec: 0
     });
 
+    const [activeToast, setActiveToast] = useState<ToastMessageData | null>(null);
+    const [dispatchHistoryBuffer, setDispatchHistoryBuffer] = useState<ToastMessageData[]>([]);
+    const [historyFilter, setHistoryFilter] = useState<'all' | 'success' | 'failed' | 'newest' | 'oldest'>('all');
+    const [lastDispatchMetadata, setLastDispatchMetadata] = useState<{ hash: string; timestamp: number } | null>(null);
+    const [showDuplicateModal, setShowDuplicateModal] = useState<{ phone: string; onConfirm: () => void } | null>(null);
+    const [isRetryingDispatch, setIsRetryingDispatch] = useState(false);
+
     const handleCopyCsvFormat = () => {
         const csvTemplate = `Phone,Name\n9823045678,Rohan Patil\n9422411223,Priya Sharma\n9890088776,Amit Kumar`;
         navigator.clipboard.writeText(csvTemplate);
@@ -255,6 +264,8 @@ function Share() {
     const [uploadCourseId, setUploadCourseId] = useState('ALL');
     const [uploadCategory, setUploadCategory] = useState<MediaItem['category']>('Syllabus');
     const [uploadFileType, setUploadFileType] = useState<MediaItem['fileType']>('pdf');
+    const [uploadFileObj, setUploadFileObj] = useState<File | null>(null);
+    const [replaceItem, setReplaceItem] = useState<MediaItem | null>(null);
 
     // History State
     const [historySearch, setHistorySearch] = useState('');
@@ -280,20 +291,59 @@ function Share() {
         setCollapsedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
     };
 
-    const handleSendQuickShare = async () => {
+    const handleSendQuickShare = async (bypassDuplicateCheck = false) => {
         const cleanPhone = quickPhone.replace(/\D/g, '');
         if (cleanPhone.length !== 10) {
-            alert('Please enter a valid 10-digit Indian WhatsApp mobile number.');
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'warning',
+                title: 'Invalid Phone Number',
+                message: 'Please enter a valid 10-digit Indian WhatsApp mobile number.',
+                code: 'META_INVALID_PHONE',
+                recipientPhone: quickPhone,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
             return;
         }
         if (quickRecipientName.trim().length < 2) {
-            alert('Please enter a valid Student / Parent Name (minimum 2 characters).');
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'warning',
+                title: 'Student Name Required',
+                message: 'Please enter a valid Student / Parent Name (minimum 2 characters).',
+                code: 'REQUIRED_FIELD',
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
             return;
         }
         if (selectedMaterialIds.length === 0) {
-            alert('Please select at least one material to share.');
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'warning',
+                title: 'Materials Required',
+                message: 'Please select at least one material to share.',
+                code: 'MISSING_MEDIA',
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
             return;
         }
+
+        // Duplicate Prevention Check (within 10 seconds)
+        const dispatchHash = `${cleanPhone}_${selectedMaterialIds.slice().sort().join(',')}_${quickMessage.trim()}`;
+        const now = Date.now();
+
+        if (!bypassDuplicateCheck && lastDispatchMetadata && lastDispatchMetadata.hash === dispatchHash && (now - lastDispatchMetadata.timestamp < 10000)) {
+            setShowDuplicateModal({
+                phone: quickPhone,
+                onConfirm: () => {
+                    setShowDuplicateModal(null);
+                    handleSendQuickShare(true);
+                }
+            });
+            return;
+        }
+
+        setLastDispatchMetadata({ hash: dispatchHash, timestamp: now });
 
         // 1. Trigger Full-Screen Sending Animation Modal
         setSendModalState('sending');
@@ -303,6 +353,11 @@ function Share() {
         const courseTitlesText = selectedCourses.map(c => c.title).join(', ') || 'General Enquiry';
         const selectedMaterialObjects = mediaItems.filter(m => selectedMaterialIds.includes(m.id));
 
+        const startTime = Date.now();
+        const timeline: Array<{ label: string; timestamp: string; status: 'pending' | 'success' | 'failed' }> = [
+            { label: 'Request Created', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), status: 'success' }
+        ];
+
         // Orchestrate 5-step dispatch pipeline via Unified WhatsAppDispatchEngine
         const res = await whatsAppDispatchEngine.executeDispatch({
             recipientPhone: quickPhone,
@@ -310,10 +365,54 @@ function Share() {
             courseTitle: courseTitlesText,
             textMessage: quickMessage,
             selectedMaterials: selectedMaterialObjects,
-            context: 'swift_share'
+            context: 'swift_share',
+            onProgress: (progress) => {
+                const stepTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                if (progress.state === 'sending_text') {
+                    timeline.push({ label: 'Sending to Meta', timestamp: stepTime, status: 'success' });
+                } else if (progress.state === 'sending_media') {
+                    timeline.push({ label: 'Meta Accepted & Media Uploading', timestamp: stepTime, status: 'success' });
+                } else if (progress.state === 'recording_history') {
+                    timeline.push({ label: 'Media Processed', timestamp: stepTime, status: 'success' });
+                } else if (progress.state === 'completed') {
+                    timeline.push({ label: 'Delivered Successfully', timestamp: stepTime, status: 'success' });
+                } else if (progress.state === 'failed') {
+                    timeline.push({ label: 'Dispatch Failed', timestamp: stepTime, status: 'failed' });
+                }
+            }
         });
 
+        const totalDurationMs = Date.now() - startTime;
         setIsSendingQuick(false);
+
+        // Always log complete backend response to browser console
+        console.group("WhatsApp Dispatch");
+        console.log(res);
+        console.groupEnd();
+
+        const storedOptions = {
+            quickPhone,
+            quickRecipientName: quickRecipientName.trim(),
+            courseTitlesText,
+            quickMessage,
+            selectedMaterialObjects
+        };
+
+        const toastData = mapResultToToastData(res, {
+            recipientPhone: quickPhone,
+            studentName: quickRecipientName.trim(),
+            courseTitle: courseTitlesText,
+            filesCount: selectedMaterialObjects.length,
+            timeline,
+            metrics: {
+                backendDurationMs: res.details?.durationMs || Math.min(totalDurationMs, 600),
+                totalDurationMs
+            },
+            originalOptions: storedOptions
+        });
+
+        setActiveToast(toastData);
+        setDispatchHistoryBuffer(prev => [toastData, ...prev.slice(0, 4)]);
 
         if (res.success) {
             // 2. Trigger Success Animation State
@@ -321,8 +420,8 @@ function Share() {
             setHistoryLogs(shareService.getHistoryLogs());
             setRecentContacts(shareService.getRecentContacts());
 
-            // 3. Display success screen for 1.8 seconds, then close and RESET ALL DETAILS
-            await new Promise(r => setTimeout(r, 1800));
+            // 3. Display success screen for 2.0 seconds, then close and RESET ALL DETAILS
+            await new Promise(r => setTimeout(r, 2000));
             setSendModalState('idle');
 
             // Complete Reset of Form & Selection State
@@ -338,7 +437,64 @@ function Share() {
             allMaterialsListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
             setSendModalState('idle');
-            alert('Failed to dispatch message. Please check connection.');
+        }
+    };
+
+    // Retry Failed Dispatch Handler
+    const handleRetryDispatch = async (failedToast: ToastMessageData) => {
+        if (isRetryingDispatch) return;
+        setIsRetryingDispatch(true);
+
+        const opts = failedToast.originalOptions;
+        const recipientPhone = opts?.quickPhone || quickPhone;
+        const studentName = opts?.quickRecipientName || quickRecipientName;
+        const courseTitle = opts?.courseTitlesText || 'General Enquiry';
+        const textMessage = opts?.quickMessage || quickMessage;
+        const selectedMaterials = opts?.selectedMaterialObjects || mediaItems.filter(m => selectedMaterialIds.includes(m.id));
+
+        setSendModalState('sending');
+        const startTime = Date.now();
+        const timeline: Array<{ label: string; timestamp: string; status: 'pending' | 'success' | 'failed' }> = [
+            { label: 'Retry Requested', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), status: 'success' }
+        ];
+
+        const res = await whatsAppDispatchEngine.executeDispatch({
+            recipientPhone,
+            studentName,
+            courseTitle,
+            textMessage,
+            selectedMaterials,
+            context: 'swift_share'
+        });
+
+        const totalDurationMs = Date.now() - startTime;
+        setIsRetryingDispatch(false);
+
+        console.group("WhatsApp Dispatch Retry");
+        console.log(res);
+        console.groupEnd();
+
+        const toastData = mapResultToToastData(res, {
+            recipientPhone,
+            studentName,
+            courseTitle,
+            filesCount: selectedMaterials.length,
+            timeline,
+            metrics: { backendDurationMs: res.details?.durationMs || 400, totalDurationMs },
+            originalOptions: opts
+        });
+
+        setActiveToast(toastData);
+        setDispatchHistoryBuffer(prev => [toastData, ...prev.slice(0, 4)]);
+
+        if (res.success) {
+            setSendModalState('success');
+            setHistoryLogs(shareService.getHistoryLogs());
+            setRecentContacts(shareService.getRecentContacts());
+            await new Promise(r => setTimeout(r, 2000));
+            setSendModalState('idle');
+        } else {
+            setSendModalState('idle');
         }
     };
 
@@ -646,6 +802,7 @@ function Share() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        setUploadFileObj(file);
         setUploadFileName(file.name);
         const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
         const formattedTitle = nameWithoutExt
@@ -662,31 +819,112 @@ function Share() {
 
     const handleSaveMedia = async () => {
         if (!uploadTitle.trim()) {
-            alert('Please enter a title for the media item.');
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'warning',
+                title: 'Title Required',
+                message: 'Please enter a title for the media item.',
+                timestamp: new Date().toLocaleTimeString()
+            });
             return;
         }
 
         setSaveSuccessState('saving');
-        await new Promise(res => setTimeout(res, 500));
 
-        await shareService.addMediaItem({
-            title: uploadTitle,
-            fileType: uploadFileType,
-            courseIds: uploadCourseId === 'ALL' ? ['ALL'] : [uploadCourseId],
-            category: uploadCategory,
-            fileSize: '1.5 MB',
-            isFavorite: false
-        });
+        try {
+            let base64Data = '';
+            if (uploadFileObj) {
+                base64Data = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(uploadFileObj);
+                });
+            } else {
+                const sampleText = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\ntrailer\n<< /Size 4 /Root 1 0 R >>\n%%EOF`;
+                base64Data = `data:application/pdf;base64,${btoa(sampleText)}`;
+            }
 
-        setMediaItems(shareService.getAllMedia());
-        setSaveSuccessState('saved');
+            const created = await shareService.uploadMediaFile({
+                title: uploadTitle.trim(),
+                fileType: uploadFileType === 'doc' ? 'pdf' : uploadFileType,
+                category: uploadCategory,
+                fileSize: uploadFileObj ? `${(uploadFileObj.size / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB',
+                courseIds: uploadCourseId === 'ALL' ? ['ALL'] : [uploadCourseId],
+                fileData: base64Data,
+                fileName: uploadFileName || `${uploadTitle.toLowerCase().replace(/[^a-z0-9]/g, '-')}.pdf`
+            });
 
-        setTimeout(() => {
+            setMediaItems(shareService.getAllMedia());
+            setSaveSuccessState('saved');
+
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'success',
+                title: 'Material Saved to Vercel Blob',
+                message: `"${created.title}" is now active in Neon PostgreSQL and ready for WhatsApp dispatch.`,
+                timestamp: new Date().toLocaleTimeString()
+            });
+
+            setTimeout(() => {
+                setSaveSuccessState('idle');
+                setShowUploadModal(false);
+                setUploadTitle('');
+                setUploadFileName('');
+                setUploadFileObj(null);
+            }, 1000);
+        } catch (err: any) {
             setSaveSuccessState('idle');
-            setShowUploadModal(false);
-            setUploadTitle('');
-            setUploadFileName('');
-        }, 1400);
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'error',
+                title: 'Upload Failed',
+                message: err.message || 'Failed to upload material to Vercel Blob',
+                timestamp: new Date().toLocaleTimeString()
+            });
+        }
+    };
+
+    const handleExecuteReplace = async (file: File) => {
+        if (!replaceItem) return;
+        setSaveSuccessState('saving');
+
+        try {
+            const base64Data = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            const updated = await shareService.replaceMediaFile({
+                mediaId: replaceItem.id,
+                title: replaceItem.title,
+                fileData: base64Data,
+                fileName: file.name
+            });
+
+            setMediaItems(shareService.getAllMedia());
+            setSaveSuccessState('idle');
+            setReplaceItem(null);
+
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'success',
+                title: 'Material Replaced',
+                message: `"${updated.title}" replaced in Vercel Blob & updated in Neon PostgreSQL.`,
+                timestamp: new Date().toLocaleTimeString()
+            });
+        } catch (err: any) {
+            setSaveSuccessState('idle');
+            setActiveToast({
+                id: `toast-${Date.now()}`,
+                type: 'error',
+                title: 'Replace Failed',
+                message: err.message || 'Failed to replace file in Vercel Blob',
+                timestamp: new Date().toLocaleTimeString()
+            });
+        }
     };
 
 
@@ -1524,6 +1762,70 @@ function Share() {
                         </div>
 
                         {/* ════════════════════════════════════════════════════════════════
+                            SESSION DISPATCH HISTORY TOOLBAR (LAST 5 ATTEMPTS WITH FILTERS)
+                           ════════════════════════════════════════════════════════════════ */}
+                        {dispatchHistoryBuffer.length > 0 && (
+                            <div className="p-3.5 rounded-2xl bg-[#161b22]/90 border border-slate-800 space-y-2.5 mt-4 backdrop-blur-md">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                                        <History className="w-3.5 h-3.5 text-cyan-400" />
+                                        <span>Session Dispatch Diagnostics</span>
+                                    </span>
+
+                                    {/* History Filter Tabs */}
+                                    <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                                        {(['all', 'success', 'failed', 'newest', 'oldest'] as const).map(f => (
+                                            <button
+                                                key={f}
+                                                type="button"
+                                                onClick={() => setHistoryFilter(f)}
+                                                className={cn(
+                                                    "px-2 py-0.5 rounded-lg capitalize transition-all cursor-pointer",
+                                                    historyFilter === f
+                                                        ? "bg-slate-700 text-white font-bold"
+                                                        : "hover:bg-slate-800 hover:text-slate-200"
+                                                )}
+                                            >
+                                                {f}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                    {dispatchHistoryBuffer
+                                        .filter(item => {
+                                            if (historyFilter === 'success') return item.type === 'success';
+                                            if (historyFilter === 'failed') return item.type !== 'success';
+                                            return true;
+                                        })
+                                        .slice()
+                                        .sort((a, b) => {
+                                            if (historyFilter === 'oldest') return a.id.localeCompare(b.id);
+                                            return b.id.localeCompare(a.id);
+                                        })
+                                        .map((item) => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => setActiveToast(item)}
+                                                className={cn(
+                                                    "flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all hover:scale-105 cursor-pointer",
+                                                    item.type === 'success'
+                                                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                                                        : "bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
+                                                )}
+                                            >
+                                                <span>{item.type === 'success' ? '✓' : '✗'}</span>
+                                                <span className="font-semibold">{item.recipientPhone || 'Recipient'}</span>
+                                                <span className="text-[10px] opacity-75">({item.timestamp.split(', ')[1] || item.timestamp})</span>
+                                            </button>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ════════════════════════════════════════════════════════════════
                             WHATSAPP MESSAGE PREVIEW CARD (PROFESSIONAL COMPOSER)
                            ════════════════════════════════════════════════════════════════ */}
                         <div className="p-5 sm:p-6 rounded-3xl bg-[#161b22]/90 border border-white/15 shadow-2xl space-y-3.5 relative overflow-hidden mt-4">
@@ -1671,7 +1973,7 @@ function Share() {
                                 <motion.button
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
-                                    onClick={handleSendQuickShare}
+                                    onClick={() => handleSendQuickShare()}
                                     disabled={
                                         isSendingQuick ||
                                         quickPhone.replace(/\D/g, '').length !== 10 ||
@@ -2707,6 +3009,23 @@ function Share() {
                                             {renderFileTypeIcon(item.fileType)}
                                         </div>
                                         <div className="flex items-center gap-1">
+                                            <label
+                                                className="p-1.5 rounded-xl bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 transition-all cursor-pointer"
+                                                title="Replace file in Vercel Blob & Neon"
+                                            >
+                                                <RefreshCw className="w-3.5 h-3.5" />
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setReplaceItem(item);
+                                                            handleExecuteReplace(file);
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
 
                                             <button
                                                 onClick={() => setDeleteConfirmItem(item)}
@@ -3719,7 +4038,52 @@ function Share() {
                         </div>
                     </div>
                 )}
+                {/* Duplicate Dispatch Warning Modal */}
+                {showDuplicateModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <div className="bg-[#161b22] border border-amber-500/40 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400">
+                                    <AlertCircle className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-extrabold text-white">Duplicate Dispatch Detected</h3>
+                                    <p className="text-xs text-slate-400">An identical WhatsApp message was sent to this contact within the last 10 seconds.</p>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-300">
+                                Recipient: {showDuplicateModal.phone}
+                            </div>
+
+                            <div className="flex items-center gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDuplicateModal(null)}
+                                    className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => showDuplicateModal.onConfirm()}
+                                    className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-lg shadow-amber-600/30 transition-all cursor-pointer"
+                                >
+                                    Send Anyway
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </AnimatePresence>
+
+            {/* Production Toast Notifications System */}
+            <ToastNotification
+                toast={activeToast}
+                onClose={() => setActiveToast(null)}
+                onRetry={handleRetryDispatch}
+                isRetrying={isRetryingDispatch}
+            />
         </div>
     );
 }

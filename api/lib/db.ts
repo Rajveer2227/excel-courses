@@ -19,6 +19,10 @@ export function getSql() {
   return neon(connectionString);
 }
 
+export function getDb() {
+  return getSql();
+}
+
 /**
  * Execute healthcheck query against Neon PostgreSQL instance
  */

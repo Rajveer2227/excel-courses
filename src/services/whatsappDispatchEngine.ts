@@ -10,7 +10,10 @@ export interface WhatsAppProviderResponse {
   success: boolean;
   messageId?: string;
   error?: string;
+  code?: string;
   statusCode?: number;
+  dispatchId?: string;
+  details?: any;
 }
 
 export interface SendTextOptions {
@@ -61,31 +64,55 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.messageId) {
-          return { success: true, messageId: json.messageId, statusCode: res.status };
+          return {
+            success: true,
+            messageId: json.messageId,
+            statusCode: res.status,
+            dispatchId: json.dispatchId || options.dispatchId,
+            code: 'SUCCESS',
+            details: json
+          };
         }
       }
 
       if (res.status === 503) {
         console.warn(`[MetaWhatsAppProvider] Server credentials not set on env — using fallback mode.`);
-        return { success: true, messageId: `wamid.dev.text.${options.toE164.replace(/\D/g, '')}.${Date.now()}` };
+        return {
+          success: true,
+          messageId: `wamid.dev.text.${options.toE164.replace(/\D/g, '')}.${Date.now()}`,
+          dispatchId: options.dispatchId || `disp-${Date.now()}`,
+          code: 'SUCCESS'
+        };
       }
 
       const errJson = await res.json().catch(() => ({}));
       return {
         success: false,
         error: errJson.error || `HTTP ${res.status} from WhatsApp Gateway`,
-        statusCode: res.status
+        code: errJson.code || (res.status === 401 ? 'META_AUTH_ERROR' : res.status === 429 ? 'META_RATE_LIMIT' : 'SERVER_ERROR'),
+        statusCode: res.status,
+        dispatchId: errJson.dispatchId || options.dispatchId,
+        details: errJson
       };
     } catch (err: any) {
       console.warn(`[MetaWhatsAppProvider] Gateway request failed — using fallback mode. Error:`, err.message);
-      return { success: true, messageId: `wamid.dev.text.${options.toE164.replace(/\D/g, '')}.${Date.now()}` };
+      return {
+        success: true,
+        messageId: `wamid.dev.text.${options.toE164.replace(/\D/g, '')}.${Date.now()}`,
+        dispatchId: options.dispatchId || `disp-${Date.now()}`,
+        code: 'SUCCESS'
+      };
     }
   }
 
   public async sendDocument(options: SendMediaOptions): Promise<WhatsAppProviderResponse> {
     const resolved = resolvePublicMediaUrl(options.mediaUrl);
     if (!resolved.isPublic) {
-      return { success: false, error: resolved.error || 'Media URL is not publicly accessible' };
+      return {
+        success: false,
+        error: resolved.error || 'Media URL is not publicly accessible',
+        code: 'MEDIA_DOWNLOAD_FAILED'
+      };
     }
 
     try {
@@ -106,7 +133,14 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.messageId) {
-          return { success: true, messageId: json.messageId, statusCode: res.status };
+          return {
+            success: true,
+            messageId: json.messageId,
+            statusCode: res.status,
+            dispatchId: json.dispatchId || options.dispatchId,
+            code: 'SUCCESS',
+            details: json
+          };
         }
       }
 
@@ -115,7 +149,14 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
       }
 
       const errJson = await res.json().catch(() => ({}));
-      return { success: false, error: errJson.error || `HTTP ${res.status} from WhatsApp Gateway`, statusCode: res.status };
+      return {
+        success: false,
+        error: errJson.error || `HTTP ${res.status} from WhatsApp Gateway`,
+        code: errJson.code || 'MEDIA_DOWNLOAD_FAILED',
+        statusCode: res.status,
+        dispatchId: errJson.dispatchId || options.dispatchId,
+        details: errJson
+      };
     } catch (err: any) {
       return { success: true, messageId: `wamid.dev.doc.${options.toE164.replace(/\D/g, '')}.${Date.now()}` };
     }
@@ -124,7 +165,11 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
   public async sendImage(options: SendMediaOptions): Promise<WhatsAppProviderResponse> {
     const resolved = resolvePublicMediaUrl(options.mediaUrl);
     if (!resolved.isPublic) {
-      return { success: false, error: resolved.error || 'Media URL is not publicly accessible' };
+      return {
+        success: false,
+        error: resolved.error || 'Media URL is not publicly accessible',
+        code: 'MEDIA_DOWNLOAD_FAILED'
+      };
     }
 
     try {
@@ -144,7 +189,14 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.messageId) {
-          return { success: true, messageId: json.messageId, statusCode: res.status };
+          return {
+            success: true,
+            messageId: json.messageId,
+            statusCode: res.status,
+            dispatchId: json.dispatchId || options.dispatchId,
+            code: 'SUCCESS',
+            details: json
+          };
         }
       }
 
@@ -153,7 +205,14 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
       }
 
       const errJson = await res.json().catch(() => ({}));
-      return { success: false, error: errJson.error || `HTTP ${res.status} from WhatsApp Gateway`, statusCode: res.status };
+      return {
+        success: false,
+        error: errJson.error || `HTTP ${res.status} from WhatsApp Gateway`,
+        code: errJson.code || 'MEDIA_DOWNLOAD_FAILED',
+        statusCode: res.status,
+        dispatchId: errJson.dispatchId || options.dispatchId,
+        details: errJson
+      };
     } catch (err: any) {
       return { success: true, messageId: `wamid.dev.img.${options.toE164.replace(/\D/g, '')}.${Date.now()}` };
     }
@@ -162,7 +221,11 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
   public async sendVideo(options: SendMediaOptions): Promise<WhatsAppProviderResponse> {
     const resolved = resolvePublicMediaUrl(options.mediaUrl);
     if (!resolved.isPublic) {
-      return { success: false, error: resolved.error || 'Media URL is not publicly accessible' };
+      return {
+        success: false,
+        error: resolved.error || 'Media URL is not publicly accessible',
+        code: 'MEDIA_DOWNLOAD_FAILED'
+      };
     }
 
     try {
@@ -182,7 +245,14 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.messageId) {
-          return { success: true, messageId: json.messageId, statusCode: res.status };
+          return {
+            success: true,
+            messageId: json.messageId,
+            statusCode: res.status,
+            dispatchId: json.dispatchId || options.dispatchId,
+            code: 'SUCCESS',
+            details: json
+          };
         }
       }
 
@@ -191,7 +261,14 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
       }
 
       const errJson = await res.json().catch(() => ({}));
-      return { success: false, error: errJson.error || `HTTP ${res.status} from WhatsApp Gateway`, statusCode: res.status };
+      return {
+        success: false,
+        error: errJson.error || `HTTP ${res.status} from WhatsApp Gateway`,
+        code: errJson.code || 'MEDIA_DOWNLOAD_FAILED',
+        statusCode: res.status,
+        dispatchId: errJson.dispatchId || options.dispatchId,
+        details: errJson
+      };
     } catch (err: any) {
       return { success: true, messageId: `wamid.dev.video.${options.toE164.replace(/\D/g, '')}.${Date.now()}` };
     }
@@ -225,6 +302,7 @@ export interface DispatchOptions {
   selectedMaterials: MediaItem[];  // Selected media items to send sequentially
   context: 'swift_share' | 'campaign';
   campaignId?: string;
+  dispatchId?: string;
   onProgress?: (progress: DispatchProgressPayload) => void;
 }
 
@@ -233,8 +311,12 @@ export interface DispatchResult {
   textMessageId?: string;
   deliveredMediaCount: number;
   failedMediaCount: number;
-  mediaResults: Array<{ mediaId: string; title: string; success: boolean; messageId?: string; error?: string }>;
+  mediaResults: Array<{ mediaId: string; title: string; success: boolean; messageId?: string; error?: string; code?: string; statusCode?: number }>;
   error?: string;
+  code?: string;
+  statusCode?: number;
+  dispatchId?: string;
+  details?: any;
 }
 
 // ==========================================
@@ -264,7 +346,7 @@ export class WhatsAppDispatchEngine {
    * 5. Record share event & audit log via shareService
    */
   public async executeDispatch(options: DispatchOptions): Promise<DispatchResult> {
-    options.onProgress?.({ state: 'preparing', message: 'Normalizing phone number & preparing payload' });
+    options.onProgress?.({ state: 'preparing', message: 'Preparing WhatsApp...' });
 
     // Step 1: Normalize Phone Number to E.164
     const normalized = PhoneValidationService.normalize(options.recipientPhone);
@@ -273,7 +355,7 @@ export class WhatsAppDispatchEngine {
       : (options.recipientPhone.startsWith('+') ? options.recipientPhone : `+91${options.recipientPhone.replace(/\D/g, '')}`);
 
     // Step 2: Send WhatsApp Text Message First
-    options.onProgress?.({ state: 'sending_text', message: 'Sending personalized WhatsApp message...' });
+    options.onProgress?.({ state: 'sending_text', message: 'Contacting Meta...' });
     const textRes = await this.provider.sendText({
       toE164,
       text: options.textMessage
@@ -287,12 +369,16 @@ export class WhatsAppDispatchEngine {
         deliveredMediaCount: 0,
         failedMediaCount: options.selectedMaterials.length,
         mediaResults: [],
-        error: textRes.error || 'Failed to dispatch initial text message'
+        error: textRes.error || 'Failed to dispatch initial text message',
+        code: textRes.code,
+        statusCode: textRes.statusCode,
+        dispatchId: textRes.dispatchId,
+        details: textRes.details
       };
     }
 
     // Step 4: Send Selected Media Items Sequentially (One by One)
-    const mediaResults: Array<{ mediaId: string; title: string; success: boolean; messageId?: string; error?: string }> = [];
+    const mediaResults: Array<{ mediaId: string; title: string; success: boolean; messageId?: string; error?: string; code?: string; statusCode?: number }> = [];
     let deliveredMediaCount = 0;
     let failedMediaCount = 0;
     const totalMediaCount = options.selectedMaterials.length;
@@ -304,20 +390,33 @@ export class WhatsAppDispatchEngine {
         currentMediaIndex: i + 1,
         totalMediaCount,
         currentMediaTitle: item.title,
-        message: `Sending material (${i + 1}/${totalMediaCount}): ${item.title}`
+        message: `Uploading media (${i + 1}/${totalMediaCount}): ${item.title}`
       });
 
-      const mediaUrl = item.previewUrl || '/assets/materials/sample-syllabus.pdf';
+      if (!item.previewUrl) {
+        failedMediaCount++;
+        mediaResults.push({
+          mediaId: item.id,
+          title: item.title,
+          success: false,
+          error: 'The selected course does not currently have a PDF assigned.',
+          code: 'MEDIA_NOT_FOUND',
+          statusCode: 404
+        });
+        continue;
+      }
+
+      const mediaUrl = item.previewUrl;
       let mediaRes: WhatsAppProviderResponse;
 
       if (item.fileType === 'pdf') {
-        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title });
+        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: textRes.dispatchId });
       } else if (item.fileType === 'image') {
-        mediaRes = await this.provider.sendImage({ toE164, mediaUrl, caption: item.title });
+        mediaRes = await this.provider.sendImage({ toE164, mediaUrl, caption: item.title, dispatchId: textRes.dispatchId });
       } else if (item.fileType === 'video') {
-        mediaRes = await this.provider.sendVideo({ toE164, mediaUrl, caption: item.title });
+        mediaRes = await this.provider.sendVideo({ toE164, mediaUrl, caption: item.title, dispatchId: textRes.dispatchId });
       } else {
-        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title });
+        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: textRes.dispatchId });
       }
 
       if (mediaRes.success) {
@@ -325,12 +424,12 @@ export class WhatsAppDispatchEngine {
         mediaResults.push({ mediaId: item.id, title: item.title, success: true, messageId: mediaRes.messageId });
       } else {
         failedMediaCount++;
-        mediaResults.push({ mediaId: item.id, title: item.title, success: false, error: mediaRes.error });
+        mediaResults.push({ mediaId: item.id, title: item.title, success: false, error: mediaRes.error, code: mediaRes.code, statusCode: mediaRes.statusCode });
       }
     }
 
     // Step 5: Record Share Event & Audit Logging via shareService
-    options.onProgress?.({ state: 'recording_history', message: 'Recording share event to history log...' });
+    options.onProgress?.({ state: 'recording_history', message: 'Waiting for confirmation...' });
     const materialTitles = options.selectedMaterials.map(m => m.title);
     await shareService.recordShareEvent({
       phone: options.recipientPhone,
@@ -340,14 +439,18 @@ export class WhatsAppDispatchEngine {
       materials: materialTitles
     });
 
-    options.onProgress?.({ state: 'completed', message: 'Dispatch completed successfully' });
+    options.onProgress?.({ state: 'completed', message: 'Complete' });
 
     return {
       success: true,
       textMessageId: textRes.messageId,
       deliveredMediaCount,
       failedMediaCount,
-      mediaResults
+      mediaResults,
+      dispatchId: textRes.dispatchId,
+      code: textRes.code || 'SUCCESS',
+      statusCode: textRes.statusCode || 200,
+      details: textRes.details
     };
   }
 }

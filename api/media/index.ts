@@ -1,71 +1,48 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import {
-  getMediaItemsFromDb,
-  addMediaItemToDb,
-  updateMediaItemInDb,
-  deleteMediaItemFromDb
-} from '../lib/db.js';
+import { getDb } from '../lib/db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
   try {
-    switch (req.method) {
-      case 'GET': {
-        const items = await getMediaItemsFromDb();
-        return res.status(200).json(items);
-      }
+    const sql = getDb();
+    const rows = await sql`
+      SELECT 
+        id,
+        title,
+        COALESCE(file_type, 'pdf') as "fileType",
+        COALESCE(course_ids, '{}') as "courseIds",
+        category,
+        file_size as "fileSize",
+        upload_date as "uploadDate",
+        is_favorite as "isFavorite",
+        COALESCE(preview_url, url, blob_url, '') as "previewUrl",
+        COALESCE(blob_url, url, preview_url, '') as "blobUrl"
+      FROM media_items
+      WHERE is_active = TRUE OR is_active IS NULL
+      ORDER BY created_at DESC;
+    `;
 
-      case 'POST': {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-        if (!body || !body.title || !body.fileType || !body.category) {
-          return res.status(400).json({ error: 'Missing required media fields (title, fileType, category)' });
-        }
-
-        const newItem = await addMediaItemToDb({
-          id: body.id,
-          title: body.title,
-          fileType: body.fileType,
-          category: body.category,
-          fileSize: body.fileSize || '1.0 MB',
-          courseIds: body.courseIds || ['ALL'],
-          isFavorite: body.isFavorite || false,
-          previewUrl: body.previewUrl
-        });
-
-        return res.status(201).json(newItem);
-      }
-
-      case 'PUT': {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const id = (req.query?.id as string) || body?.id;
-        if (!id) {
-          return res.status(400).json({ error: 'Missing media item id' });
-        }
-
-        const updated = await updateMediaItemInDb(id, body);
-        if (!updated) {
-          return res.status(404).json({ error: 'Media item not found' });
-        }
-        return res.status(200).json(updated);
-      }
-
-      case 'DELETE': {
-        const id = (req.query?.id as string) || (typeof req.body === 'object' ? req.body?.id : undefined);
-        if (!id) {
-          return res.status(400).json({ error: 'Missing media item id' });
-        }
-
-        const success = await deleteMediaItemFromDb(id);
-        if (!success) {
-          return res.status(404).json({ error: 'Media item not found' });
-        }
-        return res.status(200).json({ success: true, id });
-      }
-
-      default:
-        return res.status(405).json({ error: 'Method Not Allowed' });
-    }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return res.status(500).json({ error: message });
+    return res.status(200).json({
+      success: true,
+      mediaItems: rows
+    });
+  } catch (err: any) {
+    console.error('[API /api/media] Fetch Error:', err.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch media items from Neon database',
+      details: err.message
+    });
   }
 }
