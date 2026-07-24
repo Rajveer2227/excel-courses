@@ -13,12 +13,19 @@ const Compare = lazy(() => import('./pages/Compare'));
 const Presentation = lazy(() => import('./pages/Presentation'));
 const Share = lazy(() => import('./pages/Share'));
 
-// Seamless full-screen dark loading fallback
+// Seamless full-screen dark loading fallback with EC branding
 const LoadingFallback = () => (
-    <div className="flex items-center justify-center min-h-screen w-full bg-[#0b0e14] fixed inset-0 z-50">
-        <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
-            <p className="text-slate-400 text-sm font-bold tracking-widest uppercase animate-pulse">Loading...</p>
+    <div className="flex items-center justify-center min-h-screen w-full bg-[#0d1117] fixed inset-0 z-50 select-none">
+        <div className="flex flex-col items-center gap-4">
+            <div className="relative w-16 h-16 rounded-2xl bg-[#0d1117] border border-white/20 flex items-center justify-center shadow-2xl overflow-hidden">
+                <span className="font-black text-2xl tracking-tighter flex items-center">
+                    <span className="text-[#2384C6]">E</span><span className="text-[#D94444]">C</span>
+                </span>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-[#2384C6]/30 border-t-[#2384C6] rounded-full animate-spin" />
+                <p className="text-slate-400 text-xs font-black tracking-[0.2em] uppercase animate-pulse">Loading Workspace...</p>
+            </div>
         </div>
     </div>
 );

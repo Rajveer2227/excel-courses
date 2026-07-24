@@ -3,14 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0d1117" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Excel Computers" />
     <title>Excel Computers | Courses</title>
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="background-color: #0d1117; margin: 0; padding: 0;">
+    <div id="root">
+      <!-- Native PWA Initial Splash Screen (Active before JS hydration) -->
+      <div style="position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #0d1117; color: #ffffff; font-family: 'Inter', system-ui, -apple-system, sans-serif;">
+        <div style="position: relative; width: 100px; height: 100px; border-radius: 28px; background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+          <span style="font-size: 42px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px;">
+            <span style="color: #2384C6;">E</span><span style="color: #D94444;">C</span>
+          </span>
+        </div>
+        <h1 style="font-size: 24px; font-weight: 900; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 20px; margin-bottom: 4px;">
+          <span style="color: #2384C6;">EXCEL</span> <span style="color: #D94444;">COMPUTERS</span>
+        </h1>
+        <p style="font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #64748b; margin: 0;">
+          COURSES & MATERIAL SYSTEM
+        </p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

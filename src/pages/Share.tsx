@@ -1276,7 +1276,7 @@ function Share() {
                 <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[140px] transform-gpu pointer-events-none" />
             </div>
 
-            <div className="w-full max-w-7xl mx-auto px-4 md:px-6 lg:pl-36 xl:pl-40 lg:pr-6 relative z-10">
+            <div className="w-full max-w-7xl mx-auto px-4 md:pl-36 lg:pl-40 xl:pl-44 md:pr-6 lg:pr-6 relative z-10">
 
                 {/* Page Title Bar */}
                 <div className="mb-3 lg:mb-4 flex items-center justify-between">
@@ -1329,7 +1329,7 @@ function Share() {
                 </div>
 
                 {/* ════════════════════════════════════════════════════════════════
-                    1. LANDING HUB VIEW (1 CARD PER ROW - TABLET PERFECT CLEARANCE)
+                    1. LANDING HUB VIEW (2 CARDS PER ROW - NO SCROLL)
                    ════════════════════════════════════════════════════════════════ */}
                 {activeWorkspace === 'hub' && (
                     <motion.div
@@ -1337,7 +1337,7 @@ function Share() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="grid grid-cols-1 gap-3.5 lg:gap-4 mt-2 max-w-4xl"
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5 mt-2 max-w-5xl"
                     >
                         {/* Card 1: Swift Share */}
                         <motion.div
@@ -1948,7 +1948,7 @@ function Share() {
                         {/* ════════════════════════════════════════════════════════════════
                             STEP 4: STICKY BOTTOM ACTION BAR (ALWAYS VISIBLE)
                            ════════════════════════════════════════════════════════════════ */}
-                        <div className="fixed bottom-4 left-4 right-4 lg:left-36 xl:left-40 lg:right-6 z-40">
+                        <div className="fixed bottom-4 left-4 md:left-36 lg:left-40 xl:left-44 right-4 md:right-6 lg:right-6 z-40">
                             <div className="bg-[#161b22]/95 backdrop-blur-2xl border border-white/20 rounded-2xl p-3.5 px-5 shadow-2xl flex items-center justify-between gap-4 max-w-5xl mx-auto">
                                 {/* Live Selection Summary */}
                                 <div className="flex items-center gap-4 text-xs font-bold text-slate-200">
@@ -2999,78 +2999,120 @@ function Share() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {filteredLibraryMedia.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="bg-[#161b22]/90 border border-white/15 rounded-3xl p-4 hover:border-emerald-500/40 transition-all flex flex-col justify-between space-y-3 group shadow-xl"
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10 group-hover:scale-110 transition-transform">
-                                            {renderFileTypeIcon(item.fileType)}
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <label
-                                                className="p-1.5 rounded-xl bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 transition-all cursor-pointer"
-                                                title="Replace file in Vercel Blob & Neon"
-                                            >
-                                                <RefreshCw className="w-3.5 h-3.5" />
-                                                <input
-                                                    type="file"
-                                                    className="hidden"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) {
-                                                            setReplaceItem(item);
-                                                            handleExecuteReplace(file);
+                            {filteredLibraryMedia.map((item) => {
+                                const previewLink = item.previewUrl || item.blobUrl;
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="bg-[#161b22]/90 border border-white/15 rounded-3xl p-4 hover:border-emerald-500/40 transition-all flex flex-col justify-between space-y-3 group shadow-xl"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10 group-hover:scale-110 transition-transform">
+                                                {renderFileTypeIcon(item.fileType)}
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (previewLink) {
+                                                            window.open(previewLink, "_blank", "noopener,noreferrer");
                                                         }
                                                     }}
-                                                />
-                                            </label>
+                                                    className="p-1.5 rounded-xl bg-white/5 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 transition-all cursor-pointer"
+                                                    title="Preview PDF"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                </button>
 
-                                            <button
-                                                onClick={() => setDeleteConfirmItem(item)}
-                                                className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all"
-                                                title="Delete"
+                                                <label
+                                                    className="p-1.5 rounded-xl bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 transition-all cursor-pointer"
+                                                    title="Replace file in Vercel Blob & Neon"
+                                                >
+                                                    <RefreshCw className="w-3.5 h-3.5" />
+                                                    <input
+                                                        type="file"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                                setReplaceItem(item);
+                                                                handleExecuteReplace(file);
+                                                            }
+                                                        }}
+                                                    />
+                                                </label>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmItem(item)}
+                                                    className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h4 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (previewLink) {
+                                                        window.open(previewLink, "_blank", "noopener,noreferrer");
+                                                    }
+                                                }}
+                                                className="font-bold text-white text-sm leading-snug line-clamp-2 mb-1.5 cursor-pointer hover:text-emerald-400 transition-colors"
+                                                title="Click to preview PDF"
                                             >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
+                                                {item.title}
+                                            </h4>
+                                            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                                                <span className="px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-semibold">
+                                                    {item.category}
+                                                </span>
+                                                <span className="text-slate-500">•</span>
+                                                <span className="text-slate-400 font-mono">{item.fileSize}</span>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div>
-                                        <h4 className="font-bold text-white text-sm leading-snug line-clamp-2 mb-1.5">
-                                            {item.title}
-                                        </h4>
-                                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                                            <span className="px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-semibold">
-                                                {item.category}
-                                            </span>
-                                            <span className="text-slate-500">•</span>
-                                            <span className="text-slate-400 font-mono">{item.fileSize}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2.5 border-t border-white/10 flex items-center justify-between text-xs gap-2">
-                                        <div className="flex items-center gap-1.5 text-slate-300 font-semibold min-w-0 flex-wrap">
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <Calendar className="w-3.5 h-3.5 text-blue-400" />
-                                                <span className="text-[11px] text-slate-400">Added</span>
-                                                <span className="font-extrabold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-md border border-blue-500/35 font-mono text-[11px] shadow-sm">
-                                                    {item.uploadDate}
+                                        <div className="pt-2.5 border-t border-white/10 flex items-center justify-between text-xs gap-2">
+                                            <div className="flex items-center gap-1.5 text-slate-300 font-semibold min-w-0 flex-wrap">
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                                                    <span className="text-[11px] text-slate-400">Added</span>
+                                                    <span className="font-extrabold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-md border border-blue-500/35 font-mono text-[11px] shadow-sm">
+                                                        {item.uploadDate}
+                                                    </span>
+                                                </div>
+                                                <span
+                                                    className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/35 font-extrabold text-[10px] shadow-sm leading-tight inline-block"
+                                                >
+                                                    {getCourseLabel(item.courseIds)}
                                                 </span>
                                             </div>
-                                            <span
-                                                className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/35 font-extrabold text-[10px] shadow-sm leading-tight inline-block"
-                                            >
-                                                {getCourseLabel(item.courseIds)}
-                                            </span>
+                                            {previewLink ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        window.open(previewLink, "_blank", "noopener,noreferrer");
+                                                    }}
+                                                    className="text-emerald-400 hover:text-emerald-300 font-black text-[10px] uppercase tracking-wider bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0 flex items-center gap-1 cursor-pointer transition-all shadow-sm"
+                                                    title="Open preview PDF in new tab"
+                                                >
+                                                    <Eye className="w-3 h-3" />
+                                                    <span>Preview</span>
+                                                </button>
+                                            ) : (
+                                                <span className="text-slate-500 font-black text-[10px] uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded-full border border-white/10 shrink-0">
+                                                    No Link
+                                                </span>
+                                            )}
                                         </div>
-                                        <span className="text-emerald-400 font-black text-[10px] uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
-                                            Ready
-                                        </span>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {showUploadModal && (

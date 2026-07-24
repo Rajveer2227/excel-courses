@@ -8,6 +8,7 @@ export interface MediaItem {
     uploadDate: string;
     isFavorite: boolean;
     previewUrl?: string;
+    blobUrl?: string;
 }
 
 export interface ShareLog {

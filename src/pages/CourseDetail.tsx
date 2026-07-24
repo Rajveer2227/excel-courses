@@ -172,7 +172,7 @@ export default function CourseDetail() {
             </div>
 
             <div className="w-full max-w-[1600px] mx-auto px-6 mt-12">
-                <div className="flex flex-col md:flex-row items-start gap-8 lg:pl-28 lg:pr-8">
+                <div className="flex flex-col md:flex-row items-stretch gap-8 lg:pl-28 lg:pr-8">
                     
                     {/* Left spacer - desktop only */}
                     <div className="hidden xl:block w-[60px] shrink-0" />
@@ -314,9 +314,9 @@ export default function CourseDetail() {
                         </section>
                     </div>
 
-                    {/* RIGHT COLUMN: Quick Decision Panel */}
-                    <div className="w-full md:w-[280px] xl:w-[320px] shrink-0 md:sticky md:top-24 h-fit">
-                        <div className="bg-white border-2 border-slate-100 p-8 lg:p-6 xl:p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50">
+                    {/* RIGHT COLUMN: Quick Decision Panel (Stretches with left column, inner card sticks on scroll) */}
+                    <div className="w-full md:w-[280px] xl:w-[320px] shrink-0 self-stretch">
+                        <div className="sticky top-20 md:top-24 lg:top-28 z-30 bg-white border-2 border-slate-100 p-8 lg:p-6 xl:p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50">
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-lg text-primary text-[10px] font-black uppercase tracking-widest mb-6 lg:mb-4 xl:mb-6">
                                 <Zap className="w-3.5 h-3.5" /> Quick Decision Panel
                             </div>

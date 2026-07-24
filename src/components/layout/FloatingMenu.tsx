@@ -54,15 +54,15 @@ export default function FloatingMenu() {
 
     return (
         <>
-            {/* Desktop Side Navigation */}
+            {/* Desktop & Tablet Side Navigation */}
             <motion.nav
                 initial={{ x: -100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                // Tablet Landscape (lg): top-32 prevents any jumping when URL bar hides.
+                // Tablet (md/lg): left-3 / left-4 top-20 / top-32 prevents overlapping content.
                 // Desktop (xl): inset-y-0 my-auto restores perfect vertical centering.
-                className="hidden lg:flex flex-col items-center justify-center fixed left-4 lg:top-32 xl:top-0 xl:bottom-0 xl:my-auto h-fit z-50 py-8 px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
+                className="hidden md:flex flex-col items-center justify-center fixed left-3 md:left-4 top-20 md:top-24 lg:top-32 xl:top-0 xl:bottom-0 xl:my-auto h-fit z-50 py-6 md:py-8 px-3 md:px-4 rounded-[2.5rem] glass backdrop-blur-2xl border border-white/20 shadow-2xl"
             >
-                <div className="flex flex-col gap-8">
+                <div className="flex flex-col gap-6 md:gap-8">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = location.pathname === item.path ||
@@ -73,7 +73,7 @@ export default function FloatingMenu() {
                                 key={item.path}
                                 to={item.path}
                                 className={cn(
-                                    "relative group p-4 rounded-3xl transition-all duration-300 flex items-center justify-center",
+                                    "relative group p-3 md:p-4 rounded-3xl transition-all duration-300 flex items-center justify-center",
                                     isActive ? "shadow-lg shadow-primary/40" : "text-slate-600 hover:text-primary hover:bg-primary/5"
                                 )}
                             >
@@ -84,7 +84,7 @@ export default function FloatingMenu() {
                                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                     />
                                 )}
-                                <Icon className={cn("w-7 h-7 relative z-10", isActive ? "text-white" : "")} strokeWidth={2.5} />
+                                <Icon className={cn("w-6 h-6 md:w-7 md:h-7 relative z-10", isActive ? "text-white" : "")} strokeWidth={2.5} />
                                 {/* Tooltip */}
                                 <span className="absolute left-full ml-6 px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap shadow-2xl">
                                     {item.label}
@@ -95,8 +95,8 @@ export default function FloatingMenu() {
                 </div>
             </motion.nav>
 
-            {/* Mobile hamburger — only below lg (900px), i.e. portrait & small devices */}
-            <div className="lg:hidden">
+            {/* Mobile hamburger — only below md (768px) */}
+            <div className="md:hidden">
                 <button 
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className={cn(
