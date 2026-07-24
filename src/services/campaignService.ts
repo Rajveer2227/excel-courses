@@ -95,7 +95,7 @@ class CampaignService {
 
   public async fetchStatsFromApi(): Promise<CampaignDashboardStats> {
     try {
-      const res = await fetch('/api/campaigns/stats');
+      const res = await fetch('/api/campaigns?action=stats');
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -112,7 +112,7 @@ class CampaignService {
 
   public async getCampaignById(id: string): Promise<Campaign | null> {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(id)}`);
+      const res = await fetch(`/api/campaigns?id=${encodeURIComponent(id)}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -129,7 +129,7 @@ class CampaignService {
   public async createOrSaveCampaign(campaignData: Partial<Campaign>): Promise<Campaign | null> {
     try {
       const isUpdate = Boolean(campaignData.id);
-      const url = isUpdate ? `/api/campaigns/${encodeURIComponent(campaignData.id!)}` : '/api/campaigns';
+      const url = isUpdate ? `/api/campaigns?id=${encodeURIComponent(campaignData.id!)}` : '/api/campaigns';
       const method = isUpdate ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -181,7 +181,7 @@ class CampaignService {
 
   public async duplicateCampaign(id: string): Promise<Campaign | null> {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(id)}/duplicate`, {
+      const res = await fetch(`/api/campaigns?action=duplicate&id=${encodeURIComponent(id)}`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -202,7 +202,7 @@ class CampaignService {
 
   public async archiveCampaign(id: string, isArchived?: boolean): Promise<Campaign | null> {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(id)}/archive`, {
+      const res = await fetch(`/api/campaigns?action=archive&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isArchived })
@@ -225,7 +225,7 @@ class CampaignService {
 
   public async deleteCampaign(id: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/campaigns?id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -245,7 +245,7 @@ class CampaignService {
 
   public async scheduleCampaign(id: string, scheduleSettings: any): Promise<Campaign | null> {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(id)}/schedule`, {
+      const res = await fetch(`/api/campaigns?action=schedule&id=${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(scheduleSettings)
@@ -268,7 +268,7 @@ class CampaignService {
 
   public async unscheduleCampaign(id: string): Promise<Campaign | null> {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(id)}/schedule`, {
+      const res = await fetch(`/api/campaigns?action=schedule&id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -289,7 +289,7 @@ class CampaignService {
 
   public async updateCampaignStatus(id: string, status: string, extraData?: Partial<Campaign>): Promise<Campaign | null> {
     try {
-      const res = await fetch(`/api/campaigns/${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/campaigns?id=${encodeURIComponent(id)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, ...extraData })

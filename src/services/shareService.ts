@@ -45,7 +45,7 @@ class ShareService {
                 if (json.success && Array.isArray(json.mediaItems)) {
                     if (json.mediaItems.length === 0) {
                         // Seed database if empty
-                        await fetch('/api/media/seed', { method: 'POST' });
+                        await fetch('/api/media?action=seed', { method: 'POST' });
                         const reFetch = await fetch('/api/media');
                         const seededJson = await reFetch.json();
                         if (seededJson.success && Array.isArray(seededJson.mediaItems)) {
@@ -123,7 +123,7 @@ class ShareService {
         fileData: string;
         fileName: string;
     }): Promise<MediaItem> {
-        const res = await fetch('/api/media/upload', {
+        const res = await fetch('/api/media?action=upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(params)
@@ -155,7 +155,7 @@ class ShareService {
         fileData: string;
         fileName: string;
     }): Promise<MediaItem> {
-        const res = await fetch('/api/media/replace', {
+        const res = await fetch('/api/media?action=replace', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(params)
@@ -207,7 +207,7 @@ class ShareService {
         this.notifyMediaListeners();
 
         // Async dispatch to Neon & Vercel Blob REST API
-        fetch('/api/media/delete', {
+        fetch('/api/media?action=delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mediaId: id })
