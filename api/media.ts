@@ -186,12 +186,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       for (const item of seedItems) {
         await sql`
           INSERT INTO media_items (
-            id, title, file_name, file_type, category, file_size, upload_date, is_favorite, preview_url, blob_url, course_ids, is_active
+            id, title, file_name, file_type, category, file_size, upload_date, is_favorite, url, preview_url, blob_url, course_ids, is_active
           ) VALUES (
-            ${item.id}, ${item.title}, ${item.title}, ${item.file_type}, ${item.category}, ${item.file_size}, ${item.upload_date}, ${item.is_favorite}, ${item.blob_url}, ${item.blob_url}, ${item.course_ids}, TRUE
+            ${item.id}, ${item.title}, ${item.title}, ${item.file_type}, ${item.category}, ${item.file_size}, ${item.upload_date}, ${item.is_favorite}, ${item.blob_url}, ${item.blob_url}, ${item.blob_url}, ${item.course_ids}, TRUE
           )
           ON CONFLICT (id) DO UPDATE SET
             file_name = EXCLUDED.file_name,
+            url = EXCLUDED.url,
             blob_url = EXCLUDED.blob_url,
             preview_url = EXCLUDED.preview_url;
         `;
@@ -283,6 +284,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         SET 
           title = COALESCE(${title}, title),
           file_name = ${fileName},
+          url = ${newBlob.url},
           blob_url = ${newBlob.url},
           preview_url = ${newBlob.url},
           blob_pathname = ${newBlob.pathname},
@@ -418,6 +420,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           file_size,
           upload_date,
           is_favorite,
+          url,
           preview_url,
           blob_url,
           blob_pathname,
@@ -433,6 +436,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ${formattedSize},
           ${today},
           FALSE,
+          ${blob.url},
           ${blob.url},
           ${blob.url},
           ${blob.pathname},

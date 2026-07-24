@@ -92,6 +92,13 @@ export async function initializeSchema(): Promise<{ success: boolean; message: s
       );
     `;
 
+    // Migration safety for media_items columns
+    await sql`ALTER TABLE media_items ALTER COLUMN url DROP NOT NULL;`;
+    await sql`ALTER TABLE media_items ALTER COLUMN url SET DEFAULT '';`;
+    await sql`ALTER TABLE media_items ADD COLUMN IF NOT EXISTS blob_url TEXT;`;
+    await sql`ALTER TABLE media_items ADD COLUMN IF NOT EXISTS blob_pathname TEXT;`;
+    await sql`ALTER TABLE media_items ADD COLUMN IF NOT EXISTS preview_url TEXT;`;
+
     // 3. Create WhatsApp Templates Table
     await sql`
       CREATE TABLE IF NOT EXISTS whatsapp_templates (
