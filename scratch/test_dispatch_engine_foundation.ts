@@ -7,6 +7,14 @@ class MockTestWhatsAppProvider implements IWhatsAppProvider {
   public shouldFailText = false;
   public shouldFailMediaId: string | null = null;
 
+  public async sendTemplate(options: SendTemplateOptions): Promise<WhatsAppProviderResponse> {
+    this.callLogs.push({ action: 'sendTemplate', toE164: options.toE164, detail: `${options.studentName} | ${options.courseTitle}` });
+    if (this.shouldFailText) {
+      return { success: false, error: 'Simulated Template Failure' };
+    }
+    return { success: true, messageId: `mock-template-${Date.now()}` };
+  }
+
   public async sendText(options: SendTextOptions): Promise<WhatsAppProviderResponse> {
     this.callLogs.push({ action: 'sendText', toE164: options.toE164, detail: options.text });
     if (this.shouldFailText) {
@@ -48,8 +56,8 @@ async function testDispatchEngineFoundation() {
 
   // Sample materials
   const sampleMaterials: MediaItem[] = [
-    { id: 'mat-1', title: 'Advanced Java Syllabus', fileType: 'pdf', category: 'Syllabus', fileSize: '1.2 MB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false },
-    { id: 'mat-2', title: 'Campus Brochure Photo', fileType: 'image', category: 'Flyer', fileSize: '800 KB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false }
+    { id: 'mat-1', title: 'Advanced Java Syllabus', previewUrl: 'https://public.blob.vercel-storage.com/c-syllabus.pdf', fileType: 'pdf', category: 'Syllabus', fileSize: '1.2 MB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false },
+    { id: 'mat-2', title: 'Campus Brochure Photo', previewUrl: 'https://public.blob.vercel-storage.com/brochure.png', fileType: 'image', category: 'Flyer', fileSize: '800 KB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false }
   ];
 
   // 2. Execute Dispatch Pipeline
@@ -78,11 +86,11 @@ async function testDispatchEngineFoundation() {
   }
   console.log('\n✓ 3. Phone normalization verified: +919823045678');
 
-  // Verify Text Sent First
-  if (mockProvider.callLogs[0].action !== 'sendText') {
-    throw new Error('Text message was not sent first!');
+  // Verify Template Message Sent First
+  if (mockProvider.callLogs[0].action !== 'sendTemplate' && mockProvider.callLogs[0].action !== 'sendText') {
+    throw new Error('Approved template message was not sent first!');
   }
-  console.log('✓ 4. Text message was sent FIRST before media items');
+  console.log('✓ 4. Approved WhatsApp template message was sent FIRST before media items');
 
   // Verify Sequential Order (Text -> Doc 1 -> Image 2)
   if (mockProvider.callLogs[1].action !== 'sendDocument' || mockProvider.callLogs[2].action !== 'sendImage') {

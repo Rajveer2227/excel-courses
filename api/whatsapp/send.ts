@@ -2,9 +2,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getWhatsAppConfig, validateWhatsAppConfig, logStartupHealthCheck } from '../lib/whatsappConfig.js';
 
 export interface WhatsAppSendRequestBody {
-  action: 'sendText' | 'sendDocument' | 'sendImage' | 'sendVideo';
+  action: 'sendText' | 'sendTemplate' | 'sendDocument' | 'sendImage' | 'sendVideo';
   toE164: string;
   text?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  studentName?: string;
+  courseTitle?: string;
   mediaUrl?: string;
   filename?: string;
   caption?: string;
@@ -41,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 2. Parse & Validate Request Body
   const body: WhatsAppSendRequestBody = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-  const { action, toE164, text, mediaUrl, filename, caption, idempotencyKey, dispatchId } = body;
+  const { action, toE164, text, templateName, templateLanguage, studentName, courseTitle, mediaUrl, filename, caption, idempotencyKey, dispatchId } = body;
   const correlationId = dispatchId || `disp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   // Idempotency Protection Check
@@ -65,10 +69,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  if (!action || !['sendText', 'sendDocument', 'sendImage', 'sendVideo'].includes(action)) {
+  if (!action || !['sendText', 'sendTemplate', 'sendDocument', 'sendImage', 'sendVideo'].includes(action)) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid or missing action. Must be sendText, sendDocument, sendImage, or sendVideo.',
+      error: 'Invalid or missing action. Must be sendTemplate, sendText, sendDocument, sendImage, or sendVideo.',
       code: 'INVALID_ACTION',
       dispatchId: correlationId
     });
@@ -86,7 +90,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Action-specific payload validations
-  if (action === 'sendText') {
+  if (action === 'sendTemplate') {
+    // Template variables default safely if missing
+  } else if (action === 'sendText') {
     if (!text || !text.trim()) {
       return res.status(400).json({
         success: false,
@@ -140,7 +146,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const targetRecipientDigits = cleanPhone.replace(/\D/g, '');
 
-  if (action === 'sendText') {
+  if (action === 'sendTemplate') {
+    const finalTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || templateName || 'course_information';
+    const finalTemplateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || templateLanguage || 'en';
+    const studentNameVal = (studentName || 'Student').trim();
+    const courseTitleVal = (courseTitle || 'Courses').trim();
+
+    metaPayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: targetRecipientDigits,
+      type: 'template',
+      template: {
+        name: finalTemplateName,
+        language: {
+          code: finalTemplateLang
+        },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              {
+                type: 'text',
+                text: studentNameVal
+              },
+              {
+                type: 'text',
+                text: courseTitleVal
+              }
+            ]
+          }
+        ]
+      }
+    };
+  } else if (action === 'sendText') {
     metaPayload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
