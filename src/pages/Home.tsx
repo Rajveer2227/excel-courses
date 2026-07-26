@@ -10,12 +10,9 @@ const stats = [
 
 export default function Home() {
     return (
-        <div className="min-h-screen lg:h-[100dvh] w-full relative bg-[#0d1117] flex flex-col pt-20 pb-12 lg:pt-0 lg:pb-0 lg:overflow-hidden">
-            {/* Absolute fixed dark underlay to prevent white space when address bar hides on tablet */}
-            <div className="fixed inset-0 bg-[#0d1117] -z-50 pointer-events-none" />
-            {/* Background depth layers - matching Courses page */}
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)] pointer-events-none" />
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)] pointer-events-none" />
+        <div className="min-h-screen lg:h-[100dvh] w-full relative bg-[#0b0e14] flex flex-col pt-20 pb-12 lg:pt-0 lg:pb-0 lg:overflow-hidden">
+            {/* Single GPU-accelerated fixed background canvas — zero jitter */}
+            <div className="fixed inset-0 bg-mesh-dark pointer-events-none -z-50 transform-gpu" />
 
             <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 px-6 md:pl-36 lg:pl-36 lg:pr-8">
 

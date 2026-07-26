@@ -161,13 +161,9 @@ export default function Compare() {
     if (!c1 || !c2) return null;
 
     return (
-        <div className="min-h-screen lg:h-[100dvh] w-full bg-[#0d1117] flex flex-col relative lg:overflow-hidden">
-            {/* Absolute fixed dark underlay to prevent white space when address bar hides on tablet */}
-            <div className="fixed inset-0 bg-[#0d1117] -z-50 pointer-events-none" />
-            {/* Background depth layers */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
-            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+        <div className="min-h-screen lg:h-[100dvh] w-full bg-[#0b0e14] flex flex-col relative lg:overflow-hidden">
+            {/* Single GPU-accelerated fixed background canvas — zero jitter */}
+            <div className="fixed inset-0 bg-mesh-dark pointer-events-none -z-50 transform-gpu" />
 
             <div className="relative z-10 flex flex-col pt-16 pb-20 lg:pt-4 lg:pb-6 px-6 md:pl-36 lg:pl-40 xl:pl-44 md:pr-6 lg:pr-8 max-w-7xl mx-auto w-full h-full">
 

@@ -19,11 +19,9 @@ export default function Courses() {
     });
 
     return (
-        <div className="min-h-screen w-full bg-[#0d1117] pt-24 pb-32 relative">
-            {/* Background depth layers */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(37,99,235,0.15),transparent_50%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_100%,rgba(124,58,237,0.1),transparent_50%)]" />
-            <div className="absolute inset-0" style={{backgroundImage:'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize:'28px 28px'}} />
+        <div className="min-h-screen w-full bg-[#0b0e14] pt-24 pb-32 relative">
+            {/* Single GPU-accelerated fixed background canvas — zero jitter */}
+            <div className="fixed inset-0 bg-mesh-dark pointer-events-none -z-50 transform-gpu" />
             <div className="w-full max-w-7xl mx-auto px-6 md:pl-36 lg:pl-40 xl:pl-44 md:pr-6 lg:pr-8 relative z-10">
 
                 {/* Header Section */}

@@ -51,6 +51,17 @@ body {
   .animate-shimmer-slow {
     animation: shimmer 4s infinite linear;
   }
+  .bg-mesh-dark {
+    background-color: #0b0e14;
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      radial-gradient(ellipse 75% 50% at 20% 0%, rgba(37, 99, 235, 0.15), transparent 75%),
+      radial-gradient(ellipse 75% 50% at 80% 100%, rgba(124, 58, 237, 0.10), transparent 75%);
+    background-size: 28px 28px, 100% 100%, 100% 100%;
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
 }
 
 body {
