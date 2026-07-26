@@ -27,6 +27,8 @@ export interface SendTemplateOptions {
   toE164: string;
   studentName: string;
   courseTitle: string;
+  headerMediaUrl: string;
+  headerMediaFilename?: string;
   templateName?: string;
   templateLanguage?: string;
   dispatchId?: string;
@@ -59,6 +61,15 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
   public providerName = 'Meta WhatsApp Business Cloud API';
 
   public async sendTemplate(options: SendTemplateOptions): Promise<WhatsAppProviderResponse> {
+    const resolved = resolvePublicMediaUrl(options.headerMediaUrl);
+    if (!resolved.isPublic) {
+      return {
+        success: false,
+        error: resolved.error || 'Document header URL is not publicly accessible',
+        code: 'MEDIA_DOWNLOAD_FAILED'
+      };
+    }
+
     try {
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -68,6 +79,8 @@ export class MetaWhatsAppProvider implements IWhatsAppProvider {
           toE164: options.toE164,
           studentName: options.studentName,
           courseTitle: options.courseTitle,
+          headerMediaUrl: resolved.url,
+          headerMediaFilename: options.headerMediaFilename,
           templateName: options.templateName,
           templateLanguage: options.templateLanguage,
           dispatchId: options.dispatchId,
@@ -375,6 +388,8 @@ export interface DispatchOptions {
   context: 'swift_share' | 'campaign';
   campaignId?: string;
   dispatchId?: string;
+  headerMediaUrl?: string;         // Optional explicit PDF header URL
+  headerMediaFilename?: string;    // Optional explicit PDF header filename
   onProgress?: (progress: DispatchProgressPayload) => void;
 }
 
@@ -410,12 +425,14 @@ export class WhatsAppDispatchEngine {
   }
 
   /**
-   * Canonical Dispatch Pipeline:
+   * Canonical Dispatch Pipeline for Meta Approved Document Header Template (course_information):
    * 1. Normalize phone to E.164
-   * 2. Send approved WhatsApp template first (course_information)
-   * 3. Await successful response (stop if template send fails)
-   * 4. Send selected media items sequentially (one by one)
-   * 5. Record share event & audit log via shareService
+   * 2. Identify selected PDF material for template document header
+   * 3. Validate presence of PDF document header, studentName, and courseTitle before Meta call
+   * 4. Send approved WhatsApp template with attached PDF document header
+   * 5. Circuit Breaker: Await successful response (stop if template send fails)
+   * 6. Deduplicate & send remaining selected media (images, videos, etc.) sequentially
+   * 7. Record share event & audit log via shareService
    */
   public async executeDispatch(options: DispatchOptions): Promise<DispatchResult> {
     options.onProgress?.({ state: 'preparing', message: 'Preparing WhatsApp...' });
@@ -426,54 +443,126 @@ export class WhatsAppDispatchEngine {
       ? normalized.e164
       : (options.recipientPhone.startsWith('+') ? options.recipientPhone : `+91${options.recipientPhone.replace(/\D/g, '')}`);
 
-    // Step 2: Send Approved WhatsApp Template Message First
+    // Step 2: Identify PDF Document for Template Header & Deduplication
+    const pdfMaterial = options.selectedMaterials.find(m =>
+      m.fileType === 'pdf' ||
+      (m as any).mimeType === 'application/pdf' ||
+      (m.title && m.title.toLowerCase().endsWith('.pdf'))
+    );
+
+    const headerMediaUrl = options.headerMediaUrl || pdfMaterial?.previewUrl;
+    const headerMediaFilename = options.headerMediaFilename || pdfMaterial?.title || 'Course Material Document.pdf';
+
+    // Validation Requirements Before Calling Meta API
+    if (!headerMediaUrl) {
+      const errorMsg = 'WhatsApp template course_information requires a course PDF document header. No PDF material was selected.';
+      options.onProgress?.({ state: 'failed', message: errorMsg });
+      return {
+        success: false,
+        deliveredMediaCount: 0,
+        failedMediaCount: options.selectedMaterials.length,
+        mediaResults: [],
+        error: errorMsg,
+        code: 'MISSING_TEMPLATE_HEADER_PDF',
+        statusCode: 400
+      };
+    }
+
+    if (!options.studentName || !options.studentName.trim()) {
+      const errorMsg = 'Student Name is required to dispatch course_information template.';
+      options.onProgress?.({ state: 'failed', message: errorMsg });
+      return {
+        success: false,
+        deliveredMediaCount: 0,
+        failedMediaCount: options.selectedMaterials.length,
+        mediaResults: [],
+        error: errorMsg,
+        code: 'MISSING_STUDENT_NAME',
+        statusCode: 400
+      };
+    }
+
+    if (!options.courseTitle || !options.courseTitle.trim()) {
+      const errorMsg = 'Course Title is required to dispatch course_information template.';
+      options.onProgress?.({ state: 'failed', message: errorMsg });
+      return {
+        success: false,
+        deliveredMediaCount: 0,
+        failedMediaCount: options.selectedMaterials.length,
+        mediaResults: [],
+        error: errorMsg,
+        code: 'MISSING_COURSE_TITLE',
+        statusCode: 400
+      };
+    }
+
+    // Step 3: Send Approved WhatsApp Template Message with PDF Document Header
     options.onProgress?.({ state: 'sending_text', message: 'Contacting Meta...' });
-    let textRes: WhatsAppProviderResponse;
+
+    let templateRes: WhatsAppProviderResponse;
     if (typeof this.provider.sendTemplate === 'function') {
-      textRes = await this.provider.sendTemplate({
+      templateRes = await this.provider.sendTemplate({
         toE164,
-        studentName: options.studentName || 'Student',
-        courseTitle: options.courseTitle || 'Courses',
+        studentName: options.studentName.trim(),
+        courseTitle: options.courseTitle.trim(),
+        headerMediaUrl,
+        headerMediaFilename,
         dispatchId: options.dispatchId
       });
     } else {
-      textRes = await this.provider.sendText({
+      templateRes = await this.provider.sendText({
         toE164,
         text: options.textMessage,
         dispatchId: options.dispatchId
       });
     }
 
-    // Step 3: Circuit Breaker — Stop if template message fails
-    if (!textRes.success) {
-      options.onProgress?.({ state: 'failed', message: textRes.error || 'Template message dispatch failed' });
+    // Step 4: Circuit Breaker — Stop if template message fails
+    if (!templateRes.success) {
+      options.onProgress?.({ state: 'failed', message: templateRes.error || 'Template message dispatch failed' });
       return {
         success: false,
         deliveredMediaCount: 0,
         failedMediaCount: options.selectedMaterials.length,
         mediaResults: [],
-        error: textRes.error || 'Failed to dispatch initial WhatsApp template message',
-        code: textRes.code,
-        statusCode: textRes.statusCode,
-        dispatchId: textRes.dispatchId,
-        details: textRes.details
+        error: templateRes.error || 'Failed to dispatch initial WhatsApp template message',
+        code: templateRes.code,
+        statusCode: templateRes.statusCode,
+        dispatchId: templateRes.dispatchId,
+        details: templateRes.details
       };
     }
 
-    // Step 4: Send Selected Media Items Sequentially (One by One)
+    // Step 5: Deduplication & Sequential Delivery of Remaining Media (Images, Videos, etc.)
+    // Exclude the PDF delivered inside the template document header so it is NEVER sent twice!
+    const remainingMaterials = pdfMaterial
+      ? options.selectedMaterials.filter(m => m.id !== pdfMaterial.id)
+      : options.selectedMaterials;
+
     const mediaResults: Array<{ mediaId: string; title: string; success: boolean; messageId?: string; error?: string; code?: string; statusCode?: number }> = [];
     let deliveredMediaCount = 0;
     let failedMediaCount = 0;
-    const totalMediaCount = options.selectedMaterials.length;
 
-    for (let i = 0; i < totalMediaCount; i++) {
-      const item = options.selectedMaterials[i];
+    if (pdfMaterial) {
+      mediaResults.push({
+        mediaId: pdfMaterial.id,
+        title: pdfMaterial.title,
+        success: true,
+        messageId: templateRes.messageId
+      });
+      deliveredMediaCount++;
+    }
+
+    const totalRemainingCount = remainingMaterials.length;
+
+    for (let i = 0; i < totalRemainingCount; i++) {
+      const item = remainingMaterials[i];
       options.onProgress?.({
         state: 'sending_media',
         currentMediaIndex: i + 1,
-        totalMediaCount,
+        totalMediaCount: totalRemainingCount,
         currentMediaTitle: item.title,
-        message: `Uploading media (${i + 1}/${totalMediaCount}): ${item.title}`
+        message: `Uploading media (${i + 1}/${totalRemainingCount}): ${item.title}`
       });
 
       if (!item.previewUrl) {
@@ -482,7 +571,7 @@ export class WhatsAppDispatchEngine {
           mediaId: item.id,
           title: item.title,
           success: false,
-          error: 'The selected course does not currently have a PDF assigned.',
+          error: 'The selected material does not have a valid preview URL.',
           code: 'MEDIA_NOT_FOUND',
           statusCode: 404
         });
@@ -493,13 +582,13 @@ export class WhatsAppDispatchEngine {
       let mediaRes: WhatsAppProviderResponse;
 
       if (item.fileType === 'pdf') {
-        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: textRes.dispatchId });
+        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: templateRes.dispatchId });
       } else if (item.fileType === 'image') {
-        mediaRes = await this.provider.sendImage({ toE164, mediaUrl, caption: item.title, dispatchId: textRes.dispatchId });
+        mediaRes = await this.provider.sendImage({ toE164, mediaUrl, caption: item.title, dispatchId: templateRes.dispatchId });
       } else if (item.fileType === 'video') {
-        mediaRes = await this.provider.sendVideo({ toE164, mediaUrl, caption: item.title, dispatchId: textRes.dispatchId });
+        mediaRes = await this.provider.sendVideo({ toE164, mediaUrl, caption: item.title, dispatchId: templateRes.dispatchId });
       } else {
-        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: textRes.dispatchId });
+        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: templateRes.dispatchId });
       }
 
       if (mediaRes.success) {
@@ -526,14 +615,14 @@ export class WhatsAppDispatchEngine {
 
     return {
       success: true,
-      textMessageId: textRes.messageId,
+      textMessageId: templateRes.messageId,
       deliveredMediaCount,
       failedMediaCount,
       mediaResults,
-      dispatchId: textRes.dispatchId,
-      code: textRes.code || 'SUCCESS',
-      statusCode: textRes.statusCode || 200,
-      details: textRes.details
+      dispatchId: templateRes.dispatchId,
+      code: templateRes.code || 'SUCCESS',
+      statusCode: templateRes.statusCode || 200,
+      details: templateRes.details
     };
   }
 }

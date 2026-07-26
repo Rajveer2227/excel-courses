@@ -37,8 +37,8 @@ async function testMetaIntegration() {
   const engine = new WhatsAppDispatchEngine(provider);
 
   const sampleMaterials: MediaItem[] = [
-    { id: 'mat-1', title: 'Advanced Java Syllabus.pdf', fileType: 'pdf', category: 'Syllabus', fileSize: '1.2 MB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false },
-    { id: 'mat-2', title: 'Campus Poster.png', fileType: 'image', category: 'Flyer', fileSize: '500 KB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false }
+    { id: 'mat-1', title: 'Advanced Java Syllabus.pdf', previewUrl: 'https://courses.excelcomputers.info/assets/materials/c-syllabus.pdf', fileType: 'pdf', category: 'Syllabus', fileSize: '1.2 MB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false },
+    { id: 'mat-2', title: 'Campus Poster.png', previewUrl: 'https://courses.excelcomputers.info/assets/materials/brochure.png', fileType: 'image', category: 'Flyer', fileSize: '500 KB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false }
   ];
 
   const dispatchResult = await engine.executeDispatch({

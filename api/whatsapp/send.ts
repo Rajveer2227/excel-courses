@@ -9,6 +9,8 @@ export interface WhatsAppSendRequestBody {
   templateLanguage?: string;
   studentName?: string;
   courseTitle?: string;
+  headerMediaUrl?: string;
+  headerMediaFilename?: string;
   mediaUrl?: string;
   filename?: string;
   caption?: string;
@@ -45,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 2. Parse & Validate Request Body
   const body: WhatsAppSendRequestBody = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-  const { action, toE164, text, templateName, templateLanguage, studentName, courseTitle, mediaUrl, filename, caption, idempotencyKey, dispatchId } = body;
+  const { action, toE164, text, templateName, templateLanguage, studentName, courseTitle, headerMediaUrl, headerMediaFilename, mediaUrl, filename, caption, idempotencyKey, dispatchId } = body;
   const correlationId = dispatchId || `disp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   // Idempotency Protection Check
@@ -91,7 +93,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Action-specific payload validations
   if (action === 'sendTemplate') {
-    // Template variables default safely if missing
+    const docUrl = (headerMediaUrl || mediaUrl || '').trim();
+    if (!docUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'Document header URL (headerMediaUrl) is required for course_information template.',
+        code: 'MISSING_TEMPLATE_HEADER_DOCUMENT',
+        dispatchId: correlationId
+      });
+    }
   } else if (action === 'sendText') {
     if (!text || !text.trim()) {
       return res.status(400).json({
@@ -151,6 +161,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const finalTemplateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || templateLanguage || 'en';
     const studentNameVal = (studentName || 'Student').trim();
     const courseTitleVal = (courseTitle || 'Courses').trim();
+    const docUrl = (headerMediaUrl || mediaUrl || '').trim();
+    const docFilename = (headerMediaFilename || filename || 'Course Material Document.pdf').trim();
 
     metaPayload = {
       messaging_product: 'whatsapp',
@@ -163,6 +175,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           code: finalTemplateLang
         },
         components: [
+          {
+            type: 'header',
+            parameters: [
+              {
+                type: 'document',
+                document: {
+                  link: docUrl,
+                  filename: docFilename.endsWith('.pdf') ? docFilename : `${docFilename}.pdf`
+                }
+              }
+            ]
+          },
           {
             type: 'body',
             parameters: [

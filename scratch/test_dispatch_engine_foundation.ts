@@ -1,4 +1,4 @@
-import { WhatsAppDispatchEngine, MetaWhatsAppProvider, type IWhatsAppProvider, type SendTextOptions, type SendMediaOptions, type WhatsAppProviderResponse } from '../src/services/whatsappDispatchEngine.js';
+import { WhatsAppDispatchEngine, MetaWhatsAppProvider, type IWhatsAppProvider, type SendTextOptions, type SendTemplateOptions, type SendMediaOptions, type WhatsAppProviderResponse } from '../src/services/whatsappDispatchEngine.js';
 import type { MediaItem } from '../src/data/shareData.js';
 
 class MockTestWhatsAppProvider implements IWhatsAppProvider {
@@ -92,11 +92,14 @@ async function testDispatchEngineFoundation() {
   }
   console.log('✓ 4. Approved WhatsApp template message was sent FIRST before media items');
 
-  // Verify Sequential Order (Text -> Doc 1 -> Image 2)
-  if (mockProvider.callLogs[1].action !== 'sendDocument' || mockProvider.callLogs[2].action !== 'sendImage') {
-    throw new Error('Sequential media delivery order violated!');
+  // Verify Sequential Order & PDF Deduplication (Template + PDF Header -> Image 1)
+  if (mockProvider.callLogs[0].action !== 'sendTemplate' || mockProvider.callLogs[1].action !== 'sendImage') {
+    throw new Error('Document Header Template PDF deduplication or sequential delivery violated!');
   }
-  console.log('✓ 5. Sequential media delivery order verified (Doc 1 -> Image 2)');
+  if (result.deliveredMediaCount !== 2) {
+    throw new Error(`Expected 2 delivered media (1 via template header + 1 image), got ${result.deliveredMediaCount}`);
+  }
+  console.log('✓ 5. Document Header Template PDF delivery & image deduplication verified (Template+PDF -> Image 1)');
 
   // 3. Test Circuit Breaker (Text Failure Stops Media)
   console.log('\n--- 3. Testing Error Circuit Breaker ---');
