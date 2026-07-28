@@ -417,8 +417,8 @@ export interface DispatchResult {
 
 // Configurable inter-document delay for multi-course dispatch (default: 1500 ms)
 export const MULTI_COURSE_DOCUMENT_DELAY_MS = Number(process.env.MULTI_COURSE_DOCUMENT_DELAY_MS) || 1500;
-// Configurable delay after Marketing Template dispatch before sending 1st additional document (default: 4000 ms)
-export const POST_TEMPLATE_DELAY_MS = Number(process.env.POST_TEMPLATE_DELAY_MS) || 4000;
+// Configurable post-template buffer delay to guarantee Meta finishes rendering & delivering Marketing Template FIRST (default: 6000 ms)
+export const POST_TEMPLATE_DELAY_MS = Number(process.env.POST_TEMPLATE_DELAY_MS) || 6000;
 // Centralized Marketing Template Name for easy single-value rollback/switch
 export const DEFAULT_MARKETING_TEMPLATE = process.env.WHATSAPP_TEMPLATE_NAME || 'course_information_v2';
 
@@ -449,7 +449,7 @@ export class WhatsAppDispatchEngine {
    * Case 2 (Multiple Courses):
    *   - Send 1 Marketing Template (course_information_v2) with 1st PDF in Document Header + CTA button.
    *   - Await template response from Meta Graph API.
-   *   - Wait POST_TEMPLATE_DELAY_MS (4000ms) to ensure Meta finishes rendering and delivering the Marketing Template FIRST.
+   *   - Wait POST_TEMPLATE_DELAY_MS (6000ms buffer) to ensure Meta finishes rendering and delivering the Marketing Template FIRST.
    *   - For each additional course PDF: Wait 1500ms and send standard WhatsApp Document message ONLY (no text, no caption, no CTA).
    *   - Send remaining non-PDF media items (Images, Videos) sequentially.
    */
@@ -583,7 +583,7 @@ export class WhatsAppDispatchEngine {
     }
 
     const totalRemainingCount = remainingMaterials.length;
-    let isFirstAdditionalDocument = true;
+    let isFirstRemainingMedia = true;
 
     for (let i = 0; i < totalRemainingCount; i++) {
       const item = remainingMaterials[i];
@@ -608,22 +608,20 @@ export class WhatsAppDispatchEngine {
         continue;
       }
 
+      // Apply post-template buffer before ANY remaining media dispatch to guarantee Meta delivers Marketing Template FIRST
+      if (isFirstRemainingMedia) {
+        await delayMs(POST_TEMPLATE_DELAY_MS);
+        isFirstRemainingMedia = false;
+      } else {
+        await delayMs(MULTI_COURSE_DOCUMENT_DELAY_MS);
+      }
+
       const mediaUrl = item.previewUrl;
       const isPdf = item.fileType === 'pdf' || (item as any).mimeType === 'application/pdf' || (item.title && item.title.toLowerCase().endsWith('.pdf'));
       let mediaRes: WhatsAppProviderResponse;
       let deliveryType: 'Document Only' | 'Image' | 'Video' = 'Document Only';
 
       if (isPdf) {
-        // Multi-course dispatch sequence optimization:
-        // Before dispatching the 1st additional document message, wait POST_TEMPLATE_DELAY_MS (4000ms)
-        // to guarantee Meta Cloud API finishes rendering and delivering the Marketing Template FIRST.
-        if (isFirstAdditionalDocument) {
-          await delayMs(POST_TEMPLATE_DELAY_MS);
-          isFirstAdditionalDocument = false;
-        } else {
-          await delayMs(MULTI_COURSE_DOCUMENT_DELAY_MS);
-        }
-
         // Send Document Message ONLY (No caption, no body text, no CTA button)
         mediaRes = await this.provider.sendDocument({
           toE164,
@@ -640,12 +638,6 @@ export class WhatsAppDispatchEngine {
         mediaRes = await this.provider.sendVideo({ toE164, mediaUrl, caption: item.title, dispatchId: templateRes.dispatchId });
         deliveryType = 'Video';
       } else {
-        if (isFirstAdditionalDocument) {
-          await delayMs(POST_TEMPLATE_DELAY_MS);
-          isFirstAdditionalDocument = false;
-        } else {
-          await delayMs(MULTI_COURSE_DOCUMENT_DELAY_MS);
-        }
         mediaRes = await this.provider.sendDocument({
           toE164,
           mediaUrl,
