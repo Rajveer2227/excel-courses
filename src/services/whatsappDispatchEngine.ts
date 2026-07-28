@@ -398,13 +398,29 @@ export interface DispatchResult {
   textMessageId?: string;
   deliveredMediaCount: number;
   failedMediaCount: number;
-  mediaResults: Array<{ mediaId: string; title: string; success: boolean; messageId?: string; error?: string; code?: string; statusCode?: number }>;
+  mediaResults: Array<{
+    mediaId: string;
+    title: string;
+    success: boolean;
+    messageId?: string;
+    error?: string;
+    code?: string;
+    statusCode?: number;
+    deliveryType?: 'Marketing Template' | 'Document Only' | 'Image' | 'Video';
+  }>;
   error?: string;
   code?: string;
   statusCode?: number;
   dispatchId?: string;
   details?: any;
 }
+
+// Configurable inter-document delay for multi-course dispatch (default: 1500 ms)
+export const MULTI_COURSE_DOCUMENT_DELAY_MS = Number(process.env.MULTI_COURSE_DOCUMENT_DELAY_MS) || 1500;
+// Centralized Marketing Template Name for easy single-value rollback/switch
+export const DEFAULT_MARKETING_TEMPLATE = process.env.WHATSAPP_TEMPLATE_NAME || 'course_information_v2';
+
+const delayMs = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ==========================================
 // 4. UNIFIED WHATSAPP DISPATCH ENGINE
@@ -425,14 +441,13 @@ export class WhatsAppDispatchEngine {
   }
 
   /**
-   * Canonical Dispatch Pipeline for Meta Approved Document Header Template (course_information_contact):
-   * 1. Normalize phone to E.164
-   * 2. Identify selected PDF material for template document header
-   * 3. Validate presence of PDF document header, studentName, and courseTitle before Meta call
-   * 4. Send approved WhatsApp template with attached PDF document header
-   * 5. Circuit Breaker: Await successful response (stop if template send fails)
-   * 6. Deduplicate & send remaining selected media (images, videos, etc.) sequentially
-   * 7. Record share event & audit log via shareService
+   * Canonical Multi-Course Dispatch Pipeline for Meta Approved Document Header Template:
+   * Case 1 (Single Course):
+   *   - Send 1 Marketing Template (course_information_v2) with 1st PDF in Document Header.
+   * Case 2 (Multiple Courses):
+   *   - Send 1 Marketing Template (course_information_v2) with 1st PDF in Document Header + CTA button.
+   *   - For each additional course PDF: Wait 1500ms and send standard WhatsApp Document message ONLY (no text, no caption, no CTA).
+   *   - Send remaining non-PDF media items (Images, Videos) sequentially.
    */
   public async executeDispatch(options: DispatchOptions): Promise<DispatchResult> {
     options.onProgress?.({ state: 'preparing', message: 'Preparing WhatsApp...' });
@@ -443,7 +458,7 @@ export class WhatsAppDispatchEngine {
       ? normalized.e164
       : (options.recipientPhone.startsWith('+') ? options.recipientPhone : `+91${options.recipientPhone.replace(/\D/g, '')}`);
 
-    // Step 2: Identify PDF Document for Template Header & Deduplication
+    // Step 2: Identify First PDF Document for Template Header & Deduplication
     const pdfMaterial = options.selectedMaterials.find(m =>
       m.fileType === 'pdf' ||
       (m as any).mimeType === 'application/pdf' ||
@@ -455,7 +470,7 @@ export class WhatsAppDispatchEngine {
 
     // Validation Requirements Before Calling Meta API
     if (!headerMediaUrl) {
-      const errorMsg = 'WhatsApp template course_information_contact requires a course PDF document header. No PDF material was selected.';
+      const errorMsg = `WhatsApp template ${DEFAULT_MARKETING_TEMPLATE} requires a course PDF document header. No PDF material was selected.`;
       options.onProgress?.({ state: 'failed', message: errorMsg });
       return {
         success: false,
@@ -469,7 +484,7 @@ export class WhatsAppDispatchEngine {
     }
 
     if (!options.studentName || !options.studentName.trim()) {
-      const errorMsg = 'Student Name is required to dispatch course_information_contact template.';
+      const errorMsg = `Student Name is required to dispatch ${DEFAULT_MARKETING_TEMPLATE} template.`;
       options.onProgress?.({ state: 'failed', message: errorMsg });
       return {
         success: false,
@@ -483,7 +498,7 @@ export class WhatsAppDispatchEngine {
     }
 
     if (!options.courseTitle || !options.courseTitle.trim()) {
-      const errorMsg = 'Course Title is required to dispatch course_information_contact template.';
+      const errorMsg = `Course Title is required to dispatch ${DEFAULT_MARKETING_TEMPLATE} template.`;
       options.onProgress?.({ state: 'failed', message: errorMsg });
       return {
         success: false,
@@ -496,7 +511,7 @@ export class WhatsAppDispatchEngine {
       };
     }
 
-    // Step 3: Send Approved WhatsApp Template Message with PDF Document Header
+    // Step 3: Send Approved WhatsApp Marketing Template with First PDF Document Header
     options.onProgress?.({ state: 'sending_text', message: 'Contacting Meta...' });
 
     let templateRes: WhatsAppProviderResponse;
@@ -533,13 +548,22 @@ export class WhatsAppDispatchEngine {
       };
     }
 
-    // Step 5: Deduplication & Sequential Delivery of Remaining Media (Images, Videos, etc.)
-    // Exclude the PDF delivered inside the template document header so it is NEVER sent twice!
+    // Step 5: Deduplication & Sequential Delivery of Remaining Materials
+    // Exclude the 1st PDF delivered inside the template document header so it is NEVER sent twice!
     const remainingMaterials = pdfMaterial
       ? options.selectedMaterials.filter(m => m.id !== pdfMaterial.id)
       : options.selectedMaterials;
 
-    const mediaResults: Array<{ mediaId: string; title: string; success: boolean; messageId?: string; error?: string; code?: string; statusCode?: number }> = [];
+    const mediaResults: Array<{
+      mediaId: string;
+      title: string;
+      success: boolean;
+      messageId?: string;
+      error?: string;
+      code?: string;
+      statusCode?: number;
+      deliveryType?: 'Marketing Template' | 'Document Only' | 'Image' | 'Video';
+    }> = [];
     let deliveredMediaCount = 0;
     let failedMediaCount = 0;
 
@@ -548,7 +572,8 @@ export class WhatsAppDispatchEngine {
         mediaId: pdfMaterial.id,
         title: pdfMaterial.title,
         success: true,
-        messageId: templateRes.messageId
+        messageId: templateRes.messageId,
+        deliveryType: 'Marketing Template'
       });
       deliveredMediaCount++;
     }
@@ -579,24 +604,63 @@ export class WhatsAppDispatchEngine {
       }
 
       const mediaUrl = item.previewUrl;
+      const isPdf = item.fileType === 'pdf' || (item as any).mimeType === 'application/pdf' || (item.title && item.title.toLowerCase().endsWith('.pdf'));
       let mediaRes: WhatsAppProviderResponse;
+      let deliveryType: 'Document Only' | 'Image' | 'Video' = 'Document Only';
 
-      if (item.fileType === 'pdf') {
-        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: templateRes.dispatchId });
+      if (isPdf) {
+        // Multi-course dispatch optimization:
+        // Introduce configurable 1500ms delay before sending additional PDF documents
+        await delayMs(MULTI_COURSE_DOCUMENT_DELAY_MS);
+
+        // Send Document Message ONLY (No caption, no body text, no CTA button)
+        mediaRes = await this.provider.sendDocument({
+          toE164,
+          mediaUrl,
+          filename: item.title,
+          caption: undefined, // Omit caption for clean document-only transmission
+          dispatchId: templateRes.dispatchId
+        });
+        deliveryType = 'Document Only';
       } else if (item.fileType === 'image') {
         mediaRes = await this.provider.sendImage({ toE164, mediaUrl, caption: item.title, dispatchId: templateRes.dispatchId });
+        deliveryType = 'Image';
       } else if (item.fileType === 'video') {
         mediaRes = await this.provider.sendVideo({ toE164, mediaUrl, caption: item.title, dispatchId: templateRes.dispatchId });
+        deliveryType = 'Video';
       } else {
-        mediaRes = await this.provider.sendDocument({ toE164, mediaUrl, filename: item.title, caption: item.title, dispatchId: templateRes.dispatchId });
+        await delayMs(MULTI_COURSE_DOCUMENT_DELAY_MS);
+        mediaRes = await this.provider.sendDocument({
+          toE164,
+          mediaUrl,
+          filename: item.title,
+          caption: undefined,
+          dispatchId: templateRes.dispatchId
+        });
+        deliveryType = 'Document Only';
       }
 
       if (mediaRes.success) {
         deliveredMediaCount++;
-        mediaResults.push({ mediaId: item.id, title: item.title, success: true, messageId: mediaRes.messageId });
+        mediaResults.push({
+          mediaId: item.id,
+          title: item.title,
+          success: true,
+          messageId: mediaRes.messageId,
+          deliveryType
+        });
       } else {
+        // Non-blocking failure logging: log error for individual document, continue remaining materials
         failedMediaCount++;
-        mediaResults.push({ mediaId: item.id, title: item.title, success: false, error: mediaRes.error, code: mediaRes.code, statusCode: mediaRes.statusCode });
+        mediaResults.push({
+          mediaId: item.id,
+          title: item.title,
+          success: false,
+          error: mediaRes.error,
+          code: mediaRes.code,
+          statusCode: mediaRes.statusCode,
+          deliveryType
+        });
       }
     }
 

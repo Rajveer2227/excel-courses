@@ -122,7 +122,51 @@ async function testDispatchEngineFoundation() {
   if (failResult.success !== false || failMockProvider.callLogs.length !== 1) {
     throw new Error('Circuit breaker failed! Engine should stop immediately when text message fails.');
   }
-  console.log('✓ 6. Error Circuit Breaker verified (Text failure halts media sending)');
+  // 4. Test Multi-Course Dispatch (1 Marketing Template + Document-Only for remaining PDFs)
+  console.log('\n--- 4. Testing Multi-Course Dispatch Optimization (Case 2) ---');
+  const multiMockProvider = new MockTestWhatsAppProvider();
+  const multiEngine = new WhatsAppDispatchEngine(multiMockProvider);
+
+  const multiMaterials: MediaItem[] = [
+    { id: 'pdf-1', title: 'C Programming.pdf', previewUrl: 'https://public.blob.vercel-storage.com/c.pdf', fileType: 'pdf', category: 'Syllabus', fileSize: '1 MB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false },
+    { id: 'pdf-2', title: 'Advanced Java.pdf', previewUrl: 'https://public.blob.vercel-storage.com/java.pdf', fileType: 'pdf', category: 'Syllabus', fileSize: '1.5 MB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false },
+    { id: 'pdf-3', title: 'Python.pdf', previewUrl: 'https://public.blob.vercel-storage.com/python.pdf', fileType: 'pdf', category: 'Syllabus', fileSize: '2 MB', courseIds: ['ALL'], uploadDate: '2026-07-24', isFavorite: false }
+  ];
+
+  const multiResult = await multiEngine.executeDispatch({
+    recipientPhone: '9823045678',
+    studentName: 'Rajveer',
+    courseTitle: 'C Programming, Advanced Java, Python',
+    textMessage: 'Hello Rajveer',
+    selectedMaterials: multiMaterials,
+    context: 'swift_share'
+  });
+
+  console.log('Multi-Course Call Logs:');
+  multiMockProvider.callLogs.forEach((log, idx) => {
+    console.log(`  [Step ${idx + 1}] ${log.action} -> ${log.toE164} (${log.detail})`);
+  });
+
+  // Verify 1 Marketing Template sent, followed by 2 Document Only messages
+  if (multiMockProvider.callLogs.length !== 3) {
+    throw new Error(`Expected 3 total provider calls for 3 courses, got ${multiMockProvider.callLogs.length}`);
+  }
+  if (multiMockProvider.callLogs[0].action !== 'sendTemplate') {
+    throw new Error('Step 1 must be sendTemplate for 1st course!');
+  }
+  if (multiMockProvider.callLogs[1].action !== 'sendDocument' || multiMockProvider.callLogs[2].action !== 'sendDocument') {
+    throw new Error('Step 2 & 3 must be sendDocument ONLY for additional course PDFs!');
+  }
+
+  // Verify Delivery Types logged
+  if (multiResult.mediaResults[0].deliveryType !== 'Marketing Template') {
+    throw new Error('1st PDF must be logged as Marketing Template!');
+  }
+  if (multiResult.mediaResults[1].deliveryType !== 'Document Only' || multiResult.mediaResults[2].deliveryType !== 'Document Only') {
+    throw new Error('Additional PDFs must be logged as Document Only!');
+  }
+
+  console.log('✓ 7. Multi-course dispatch optimization verified (1 Marketing Template + Document-Only for remaining PDFs)');
 
   console.log('\n✅ ALL ACCEPTANCE CRITERIA VERIFIED SUCCESSFULLY!');
   process.exit(0);
