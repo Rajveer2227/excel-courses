@@ -425,7 +425,7 @@ export class WhatsAppDispatchEngine {
   }
 
   /**
-   * Canonical Dispatch Pipeline for Meta Approved Document Header Template (course_information):
+   * Canonical Dispatch Pipeline for Meta Approved Document Header Template (course_information_contact):
    * 1. Normalize phone to E.164
    * 2. Identify selected PDF material for template document header
    * 3. Validate presence of PDF document header, studentName, and courseTitle before Meta call
@@ -455,7 +455,7 @@ export class WhatsAppDispatchEngine {
 
     // Validation Requirements Before Calling Meta API
     if (!headerMediaUrl) {
-      const errorMsg = 'WhatsApp template course_information requires a course PDF document header. No PDF material was selected.';
+      const errorMsg = 'WhatsApp template course_information_contact requires a course PDF document header. No PDF material was selected.';
       options.onProgress?.({ state: 'failed', message: errorMsg });
       return {
         success: false,
@@ -469,7 +469,7 @@ export class WhatsAppDispatchEngine {
     }
 
     if (!options.studentName || !options.studentName.trim()) {
-      const errorMsg = 'Student Name is required to dispatch course_information template.';
+      const errorMsg = 'Student Name is required to dispatch course_information_contact template.';
       options.onProgress?.({ state: 'failed', message: errorMsg });
       return {
         success: false,
@@ -483,7 +483,7 @@ export class WhatsAppDispatchEngine {
     }
 
     if (!options.courseTitle || !options.courseTitle.trim()) {
-      const errorMsg = 'Course Title is required to dispatch course_information template.';
+      const errorMsg = 'Course Title is required to dispatch course_information_contact template.';
       options.onProgress?.({ state: 'failed', message: errorMsg });
       return {
         success: false,

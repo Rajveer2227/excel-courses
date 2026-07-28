@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!docUrl) {
       return res.status(400).json({
         success: false,
-        error: 'Document header URL (headerMediaUrl) is required for course_information template.',
+        error: 'Document header URL (headerMediaUrl) is required for course_information_contact template.',
         code: 'MISSING_TEMPLATE_HEADER_DOCUMENT',
         dispatchId: correlationId
       });
@@ -157,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const targetRecipientDigits = cleanPhone.replace(/\D/g, '');
 
   if (action === 'sendTemplate') {
-    const finalTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || templateName || 'course_information';
+    const finalTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || templateName || 'course_information_contact';
     const finalTemplateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || templateLanguage || 'en';
     const studentNameVal = (studentName || 'Student').trim();
     const courseTitleVal = (courseTitle || 'Courses').trim();
