@@ -351,7 +351,7 @@ function Share() {
 
         const selectedCourses = courses.filter(c => selectedCourseIds.includes(c.id));
         const courseTitlesText = selectedCourses.map(c => c.title).join(', ') || 'General Enquiry';
-        const selectedMaterialObjects = mediaItems.filter(m => selectedMaterialIds.includes(m.id));
+        const selectedMaterialObjects = selectedMaterialIds.map(id => mediaItems.find(m => m.id === id)).filter(Boolean) as MediaItem[];
 
         const startTime = Date.now();
         const timeline: Array<{ label: string; timestamp: string; status: 'pending' | 'success' | 'failed' }> = [
