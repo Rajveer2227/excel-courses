@@ -5,6 +5,7 @@ export interface WhatsAppSendRequestBody {
   action: 'sendText' | 'sendTemplate' | 'sendDocument' | 'sendImage' | 'sendVideo';
   toE164: string;
   text?: string;
+  templateCategory?: 'marketing' | 'utility';
   templateName?: string;
   templateLanguage?: string;
   studentName?: string;
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 2. Parse & Validate Request Body
   const body: WhatsAppSendRequestBody = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-  const { action, toE164, text, templateName, templateLanguage, studentName, courseTitle, headerMediaUrl, headerMediaFilename, mediaUrl, filename, caption, idempotencyKey, dispatchId } = body;
+  const { action, toE164, text, templateCategory, templateName, templateLanguage, studentName, courseTitle, headerMediaUrl, headerMediaFilename, mediaUrl, filename, caption, idempotencyKey, dispatchId } = body;
   const correlationId = dispatchId || `disp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   // Idempotency Protection Check
@@ -153,12 +154,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 4. Construct Meta Graph API Payload
   let metaPayload: Record<string, any>;
-
   const targetRecipientDigits = cleanPhone.replace(/\D/g, '');
 
   if (action === 'sendTemplate') {
-    const defaultTemplate = process.env.WHATSAPP_TEMPLATE_NAME || 'course_information_v2';
-    const finalTemplateName = templateName || defaultTemplate;
+    const isUtility = templateCategory === 'utility';
+    const targetEnvVar = isUtility ? 'WHATSAPP_UTILITY_TEMPLATE' : 'WHATSAPP_MARKETING_TEMPLATE';
+    const envTemplate = process.env[targetEnvVar];
+
+    let finalTemplateName = (templateName || envTemplate || '').trim();
+    if (!finalTemplateName) {
+      return res.status(500).json({
+        success: false,
+        error: `Missing required environment variable: ${targetEnvVar}`,
+        code: 'MISSING_ENV_CONFIG',
+        dispatchId: correlationId
+      });
+    }
     const finalTemplateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || templateLanguage || 'en';
     const studentNameVal = (studentName || 'Student').trim();
     const courseTitleVal = (courseTitle || 'Courses').trim();
@@ -216,6 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     };
   } else if (action === 'sendDocument') {
+    const docCaption = (caption && caption.trim()) ? caption.trim() : undefined;
     metaPayload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -224,7 +236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       document: {
         link: mediaUrl!.trim(),
         filename: filename?.trim() || 'Course Material Document.pdf',
-        caption: caption?.trim() || filename?.trim() || undefined
+        caption: docCaption
       }
     };
   } else if (action === 'sendImage') {
@@ -290,7 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Log complete Graph API response body (excluding secrets) for full diagnostic auditing
+      // Log complete Graph API response body for full diagnostic auditing
       console.log(JSON.stringify({
         timestamp: new Date().toISOString(),
         dispatchId: correlationId,
@@ -311,7 +323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const metaErrorMsg = json.error?.message || json.error?.error_data?.details || 'Meta API returned an error response';
     const metaErrorCode = json.error?.code;
 
-    console.warn(JSON.stringify({
+    console.error(JSON.stringify({
       timestamp: new Date().toISOString(),
       dispatchId: correlationId,
       action,
@@ -319,9 +331,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       httpStatus: statusCode,
       durationMs,
       metaErrorCode,
-      error: metaErrorMsg,
+      metaErrorMsg,
+      metaResponseBody: json,
       success: false
-    }));
+    }, null, 2));
+
+    return res.status(statusCode || 400).json({
+      success: false,
+      error: metaErrorMsg,
+      code: metaErrorCode ? `META_ERROR_${metaErrorCode}` : 'META_API_ERROR',
+      statusCode,
+      dispatchId: correlationId,
+      details: json
+    });
 
     if (statusCode === 401 || statusCode === 403) {
       return res.status(statusCode).json({

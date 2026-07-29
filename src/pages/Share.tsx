@@ -17,6 +17,8 @@ import type { MediaItem, ShareLog, RecentContact } from '../data/shareData';
 import { shareService } from '../services/shareService';
 import { campaignService } from '../services/campaignService';
 import { whatsAppDispatchEngine } from '../services/whatsappDispatchEngine';
+import type { DispatchProgressPayload } from '../services/whatsappDispatchEngine';
+import { RealTimeDispatchModal } from '../components/share/RealTimeDispatchModal';
 import type { Campaign, CampaignStatus, DeliverySettings, ScheduleSettings, CampaignDashboardStats } from '../data/campaignData';
 import { defaultDeliverySettings, defaultScheduleSettings, availablePresetTags } from '../data/campaignData';
 import { ToastNotification, mapResultToToastData } from '../components/common/ToastNotification';
@@ -86,6 +88,8 @@ function Share() {
     });
     const [isSendingQuick, setIsSendingQuick] = useState(false);
     const [sendModalState, setSendModalState] = useState<'idle' | 'sending' | 'success'>('idle');
+    const [realTimeProgress, setRealTimeProgress] = useState<DispatchProgressPayload | null>(null);
+    const [showRealTimeModal, setShowRealTimeModal] = useState(false);
     const [saveSuccessState, setSaveSuccessState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
     // Quick Share WhatsApp Message Preview State
@@ -345,13 +349,23 @@ function Share() {
 
         setLastDispatchMetadata({ hash: dispatchHash, timestamp: now });
 
-        // 1. Trigger Full-Screen Sending Animation Modal
-        setSendModalState('sending');
-        setIsSendingQuick(true);
-
         const selectedCourses = courses.filter(c => selectedCourseIds.includes(c.id));
         const courseTitlesText = selectedCourses.map(c => c.title).join(', ') || 'General Enquiry';
         const selectedMaterialObjects = selectedMaterialIds.map(id => mediaItems.find(m => m.id === id)).filter(Boolean) as MediaItem[];
+
+        // 1. Trigger Real-Time Dispatch Progress Modal
+        setRealTimeProgress({
+            state: 'preparing',
+            event: 'PREPARING',
+            progressPercent: 5,
+            totalMediaCount: selectedMaterialObjects.length,
+            message: 'Preparing dispatch...',
+            description: 'Validating recipient and selected course materials.',
+            estimatedRemainingSec: selectedMaterialObjects.length * 3 + 6
+        });
+        setShowRealTimeModal(true);
+        setSendModalState('sending');
+        setIsSendingQuick(true);
 
         const startTime = Date.now();
         const timeline: Array<{ label: string; timestamp: string; status: 'pending' | 'success' | 'failed' }> = [
@@ -367,6 +381,7 @@ function Share() {
             selectedMaterials: selectedMaterialObjects,
             context: 'swift_share',
             onProgress: (progress) => {
+                setRealTimeProgress(progress);
                 const stepTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 if (progress.state === 'sending_text') {
                     timeline.push({ label: 'Sending to Meta', timestamp: stepTime, status: 'success' });
@@ -1189,12 +1204,18 @@ function Share() {
             }
 
             const query = historySearch.trim().toLowerCase();
+            const recipientPhone = log.recipientPhone || '';
+            const recipientName = log.recipientName || '';
+            const campaignName = log.campaignName || '';
+            const courseTitle = log.courseTitle || '';
+            const materials = Array.isArray(log.materials) ? log.materials : [];
+
             const matchesSearch = !query ||
-                log.recipientPhone.includes(query) ||
-                (log.recipientName && log.recipientName.toLowerCase().includes(query)) ||
-                (log.campaignName && log.campaignName.toLowerCase().includes(query)) ||
-                log.courseTitle.toLowerCase().includes(query) ||
-                log.materials.some(m => m.toLowerCase().includes(query));
+                recipientPhone.includes(query) ||
+                recipientName.toLowerCase().includes(query) ||
+                campaignName.toLowerCase().includes(query) ||
+                courseTitle.toLowerCase().includes(query) ||
+                materials.some(m => (m || '').toLowerCase().includes(query));
 
             const matchesStatus = historyStatusFilter === 'All'
                 ? true
@@ -1538,6 +1559,7 @@ function Share() {
                                             )}
                                         />
                                     </div>
+
                                 </div>
 
                                 {/* STEP 2: Searchable Course Selector Card */}
@@ -1956,10 +1978,9 @@ function Share() {
                                         <CheckCircle2 className="w-4 h-4" />
                                         <span>Ready to Send • {selectedMaterialIds.length} {selectedMaterialIds.length === 1 ? 'Item Selected' : 'Items Selected'}</span>
                                     </div>
-                                    <span className="hidden sm:inline text-slate-600">|</span>
-                                    <div className="hidden sm:flex items-center gap-1.5 text-slate-300">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                                        <span>WhatsApp Direct</span>
+                                    <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-[11px] font-bold">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                        <span className="text-slate-300">WhatsApp Direct</span>
                                     </div>
                                     {quickPhone && (
                                         <>
@@ -4118,6 +4139,29 @@ function Share() {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Production Real-Time WhatsApp Progress Modal */}
+            <RealTimeDispatchModal
+                isOpen={showRealTimeModal}
+                progress={realTimeProgress}
+                recipientName={quickRecipientName.trim() || 'Contact'}
+                totalMaterials={selectedMaterialIds.length}
+                onClose={() => {
+                    setShowRealTimeModal(false);
+                    setSendModalState('idle');
+                }}
+                onRetry={() => {
+                    setShowRealTimeModal(false);
+                    handleSendQuickShare(true);
+                }}
+                onViewLog={() => {
+                    setShowRealTimeModal(false);
+                }}
+                onViewHistory={() => {
+                    setShowRealTimeModal(false);
+                    setActiveWorkspace('history');
+                }}
+            />
 
             {/* Production Toast Notifications System */}
             <ToastNotification

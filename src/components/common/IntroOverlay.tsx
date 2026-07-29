@@ -11,9 +11,16 @@ const IntroOverlay = ({ onComplete }: IntroOverlayProps) => {
     const [progress, setProgress] = useState(0);
 
     useEffect(() => {
-        // Smooth progressive loading animation over ~2.2 seconds
+        // Prevent body scroll jump during preloader overlay
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        // Full progressive loading animation over ~2.0 seconds
         const startTime = Date.now();
-        const totalDuration = 2200; // 2.2 seconds for 0 -> 100%
+        const totalDuration = 2000; // 2.0 seconds for smooth 0% -> 100%
+
+        let fadeTimer: NodeJS.Timeout;
+        let completeTimer: NodeJS.Timeout;
 
         const interval = setInterval(() => {
             const elapsed = Date.now() - startTime;
@@ -22,22 +29,25 @@ const IntroOverlay = ({ onComplete }: IntroOverlayProps) => {
 
             if (currentProgress >= 100) {
                 clearInterval(interval);
+
+                // Pause at 100% for 400ms so the user sees full 100% completion before exit
+                fadeTimer = setTimeout(() => {
+                    setIsVisible(false);
+                }, 400);
+
+                // Complete unmount transition after exit fade (500ms exit)
+                completeTimer = setTimeout(() => {
+                    document.body.style.overflow = originalOverflow;
+                    onComplete();
+                }, 900);
             }
-        }, 30);
-
-        // Fade out overlay after 2.5s, complete after 2.9s
-        const timer = setTimeout(() => {
-            setIsVisible(false);
-        }, 2500);
-
-        const completeTimer = setTimeout(() => {
-            onComplete();
-        }, 2950);
+        }, 16);
 
         return () => {
             clearInterval(interval);
-            clearTimeout(timer);
-            clearTimeout(completeTimer);
+            if (fadeTimer) clearTimeout(fadeTimer);
+            if (completeTimer) clearTimeout(completeTimer);
+            document.body.style.overflow = originalOverflow;
         };
     }, [onComplete]);
 
@@ -53,10 +63,11 @@ const IntroOverlay = ({ onComplete }: IntroOverlayProps) => {
         <AnimatePresence>
             {isVisible && (
                 <motion.div
-                    initial={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.05, filter: 'blur(8px)' }}
-                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                    className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-[#0b0e14] text-white overflow-hidden select-none"
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, filter: 'blur(8px)' }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-[#0b0e14] text-white overflow-hidden select-none pointer-events-auto"
                 >
                     {/* Hardware-accelerated ambient glow orbs */}
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -83,9 +94,8 @@ const IntroOverlay = ({ onComplete }: IntroOverlayProps) => {
                     <div className="relative z-10 flex flex-col items-center justify-center space-y-7 max-w-md px-6 text-center">
                         {/* 3D EC Logo Badge with Conic Neon Halo & Pulse Ring */}
                         <motion.div
-                            initial={{ scale: 0.4, rotate: -15, opacity: 0 }}
-                            animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                            transition={{ type: "spring", stiffness: 280, damping: 20 }}
+                            initial={{ opacity: 1, scale: 1 }}
+                            animate={{ opacity: 1, scale: 1 }}
                             className="relative group cursor-pointer"
                         >
                             {/* Rotating Conic Neon Halo Ring */}
@@ -119,9 +129,8 @@ const IntroOverlay = ({ onComplete }: IntroOverlayProps) => {
                         {/* Title & Branding */}
                         <div className="space-y-2">
                             <motion.h1
-                                initial={{ opacity: 0, y: 15 }}
+                                initial={{ opacity: 1, y: 0 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2, duration: 0.6 }}
                                 className="text-3xl md:text-5xl font-black tracking-[0.18em] uppercase flex items-center justify-center gap-2 drop-shadow-lg"
                             >
                                 <span className="text-[#2384C6]">Excel</span>
@@ -129,9 +138,8 @@ const IntroOverlay = ({ onComplete }: IntroOverlayProps) => {
                             </motion.h1>
 
                             <motion.div
-                                initial={{ opacity: 0, y: 15 }}
+                                initial={{ opacity: 1, y: 0 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.35, duration: 0.6 }}
                                 className="flex items-center justify-center gap-2"
                             >
                                 <span className="px-4 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300 text-[10px] md:text-xs font-black uppercase tracking-[0.25em] shadow-md backdrop-blur-md">

@@ -229,6 +229,26 @@ export async function initializeSchema(): Promise<{ success: boolean; message: s
       );
     `;
 
+    // 9. Create WhatsApp Auto Replies Table (24-Hour Window Tracking)
+    await sql`
+      CREATE TABLE IF NOT EXISTS whatsapp_auto_replies (
+        phone_number VARCHAR(50) PRIMARY KEY,
+        last_auto_reply_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        last_inbound_message_id VARCHAR(255),
+        inbound_count INT DEFAULT 1,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // 10. Create Global App Settings Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value JSONB NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
     isSchemaInitialized = true;
     return {
       success: true,
@@ -240,6 +260,146 @@ export async function initializeSchema(): Promise<{ success: boolean; message: s
       success: false,
       message: errorMsg
     };
+  }
+}
+
+// In-memory fallback map for app settings (works seamlessly even when DB is offline)
+const inMemoryAppSettings = new Map<string, any>();
+
+/**
+ * Fetch a global setting from Neon PostgreSQL DB with in-memory fallback
+ */
+export async function getAppSettingFromDb<T = any>(key: string, defaultValue: T): Promise<T> {
+  const sql = getSql();
+  if (sql) {
+    try {
+      await initializeSchema();
+      const rows = await sql`
+        SELECT setting_value FROM app_settings WHERE setting_key = ${key} LIMIT 1;
+      `;
+      if (rows && rows.length > 0) {
+        const val = rows[0].setting_value;
+        inMemoryAppSettings.set(key, val);
+        return val as T;
+      }
+    } catch (err) {
+      console.warn(`[DB] Failed to fetch app setting "${key}" from PostgreSQL DB:`, err);
+    }
+  }
+
+  if (inMemoryAppSettings.has(key)) {
+    return inMemoryAppSettings.get(key) as T;
+  }
+  return defaultValue;
+}
+
+/**
+ * Save a global setting to Neon PostgreSQL DB with in-memory fallback
+ */
+export async function setAppSettingInDb<T = any>(key: string, value: T): Promise<{ success: boolean; value: T }> {
+  inMemoryAppSettings.set(key, value);
+  const sql = getSql();
+  if (sql) {
+    try {
+      await initializeSchema();
+      await sql`
+        INSERT INTO app_settings (setting_key, setting_value, updated_at)
+        VALUES (${key}, ${JSON.stringify(value)}::jsonb, NOW())
+        ON CONFLICT (setting_key)
+        DO UPDATE SET
+          setting_value = EXCLUDED.setting_value,
+          updated_at = NOW();
+      `;
+      return { success: true, value };
+    } catch (err) {
+      console.error(`[DB] Failed to save app setting "${key}" to PostgreSQL DB:`, err);
+    }
+  }
+  return { success: true, value };
+}
+
+// In-memory fallback map for auto-reply tracking (works seamlessly even when DB is offline)
+const inMemoryAutoReplies = new Map<string, { lastAutoReplyAt: number; lastInboundMessageId?: string }>();
+
+/**
+ * Check whether an auto-reply should be sent to a recipient.
+ * Rules:
+ * 1. Only 1 auto-reply per customer phone number per 24-hour window.
+ * 2. Idempotent against duplicate webhook message IDs.
+ */
+export async function shouldSendAutoReply(phoneNumber: string, messageId?: string): Promise<{ shouldSend: boolean; reason?: string }> {
+  const cleanPhone = phoneNumber.replace(/\D/g, '');
+  const now = Date.now();
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+  // 1. Check in-memory fallback cache first
+  const cached = inMemoryAutoReplies.get(cleanPhone);
+  if (cached) {
+    if (messageId && cached.lastInboundMessageId === messageId) {
+      return { shouldSend: false, reason: 'DUPLICATE_WEBHOOK_EVENT' };
+    }
+    if (now - cached.lastAutoReplyAt < TWENTY_FOUR_HOURS_MS) {
+      return { shouldSend: false, reason: 'ALREADY_SENT_IN_24H_WINDOW' };
+    }
+  }
+
+  // 2. Query Neon PostgreSQL database
+  try {
+    await initializeSchema();
+    const sql = getSql();
+    const rows = await sql`
+      SELECT phone_number, last_auto_reply_at, last_inbound_message_id
+      FROM whatsapp_auto_replies
+      WHERE phone_number = ${cleanPhone}
+    `;
+
+    if (rows.length > 0) {
+      const row = rows[0];
+      const lastMsgId = row.last_inbound_message_id;
+      const lastReplyTime = new Date(row.last_auto_reply_at as string).getTime();
+
+      if (messageId && lastMsgId === messageId) {
+        return { shouldSend: false, reason: 'DUPLICATE_WEBHOOK_EVENT' };
+      }
+
+      if (now - lastReplyTime < TWENTY_FOUR_HOURS_MS) {
+        return { shouldSend: false, reason: 'ALREADY_SENT_IN_24H_WINDOW' };
+      }
+    }
+  } catch (e) {
+    console.warn('[AutoReply] DB query error, relying on in-memory fallback:', e);
+  }
+
+  return { shouldSend: true };
+}
+
+/**
+ * Record that an auto-reply has been sent to a customer.
+ */
+export async function recordAutoReplySent(phoneNumber: string, messageId?: string): Promise<void> {
+  const cleanPhone = phoneNumber.replace(/\D/g, '');
+  const now = Date.now();
+
+  // Update in-memory fallback cache
+  inMemoryAutoReplies.set(cleanPhone, {
+    lastAutoReplyAt: now,
+    lastInboundMessageId: messageId
+  });
+
+  // Update Neon PostgreSQL database
+  try {
+    await initializeSchema();
+    const sql = getSql();
+    await sql`
+      INSERT INTO whatsapp_auto_replies (phone_number, last_auto_reply_at, last_inbound_message_id, inbound_count)
+      VALUES (${cleanPhone}, CURRENT_TIMESTAMP, ${messageId || null}, 1)
+      ON CONFLICT (phone_number) DO UPDATE SET
+        last_auto_reply_at = CURRENT_TIMESTAMP,
+        last_inbound_message_id = EXCLUDED.last_inbound_message_id,
+        inbound_count = whatsapp_auto_replies.inbound_count + 1
+    `;
+  } catch (e) {
+    console.warn('[AutoReply] Failed to record auto-reply in DB:', e);
   }
 }
 
