@@ -799,7 +799,7 @@ export class WhatsAppDispatchEngine {
       let deliveryType: 'Marketing Template' | 'Raw Document' | 'Utility Template Fallback' | 'Image' | 'Video' = 'Raw Document';
 
       if (isPdf) {
-        console.log(`Sending PDF #${i + 2} (${item.title}) [Attempt Raw Document]...`);
+        console.log(`[DispatchEngine] Attempting Raw Document for "${item.title}"...`);
         mediaRes = await this.provider.sendDocument({
           toE164,
           mediaUrl,
@@ -809,9 +809,13 @@ export class WhatsAppDispatchEngine {
         });
         deliveryType = 'Raw Document';
 
+        console.log(`[DispatchEngine] Meta Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (code: ${mediaRes.code || 'N/A'}, error: ${mediaRes.error || 'None'})`);
+        console.log(`[DispatchEngine] Meta Error Code: ${mediaRes.code || 'N/A'}`);
+
         if (mediaRes.success) {
           deliveredViaDocumentCount++;
           console.log(`✓ Response PDF #${i + 2}: Delivered via Raw Document! (wamid: ${mediaRes.messageId})`);
+          console.log(`[DispatchEngine] Utility Fallback Triggered = false`);
           options.onProgress?.({
             state: 'sending_media',
             event: 'DOCUMENT_SENT',
@@ -824,20 +828,33 @@ export class WhatsAppDispatchEngine {
             estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
           });
         } else {
+          // Detect ANY Meta error on raw document send to trigger Utility Template fallback
           const errCodeStr = String(mediaRes.code || '');
           const errMsgStr = String(mediaRes.error || '').toLowerCase();
+          const detailsStr = JSON.stringify(mediaRes.details || {}).toLowerCase();
+
           const isCustomerWindowError =
+            !mediaRes.success ||
             errCodeStr.includes('131047') ||
             errCodeStr.includes('131026') ||
+            errCodeStr.includes('131051') ||
+            errCodeStr.includes('131000') ||
+            errCodeStr.includes('100') ||
             errMsgStr.includes('re-engagement') ||
-            errMsgStr.includes('customer care window') ||
-            errMsgStr.includes('customer service window') ||
+            errMsgStr.includes('customer care') ||
+            errMsgStr.includes('customer service') ||
+            errMsgStr.includes('window') ||
+            detailsStr.includes('131047') ||
+            detailsStr.includes('131026') ||
+            detailsStr.includes('window') ||
             mediaRes.statusCode === 400 ||
             mediaRes.statusCode === 403;
 
+          console.log(`[DispatchEngine] Utility Fallback Triggered = ${isCustomerWindowError}`);
+
           if (isCustomerWindowError && typeof this.provider.sendTemplate === 'function') {
             const currentCourseName = item.title.replace(/\.pdf$/i, '').trim();
-            console.warn(`[DispatchEngine] Meta customer window restriction for ${item.title} (${mediaRes.error}). Automatically resending via Approved Utility Template...`);
+            console.log(`[DispatchEngine] Sending Utility Template for "${item.title}"...`);
 
             options.onProgress?.({
               state: 'sending_media',
@@ -862,6 +879,8 @@ export class WhatsAppDispatchEngine {
               dispatchId: options.dispatchId
             });
 
+            console.log(`[DispatchEngine] Utility Template ${mediaRes.success ? 'Success' : 'Failure'}: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (wamid: ${mediaRes.messageId || 'N/A'}, error: ${mediaRes.error || 'None'})`);
+
             if (mediaRes.success) {
               console.log(`✓ [DispatchEngine] Utility Template fallback successfully delivered PDF #${i + 2} (${item.title})! (wamid: ${mediaRes.messageId})`);
               deliveryType = 'Utility Template Fallback';
@@ -883,8 +902,10 @@ export class WhatsAppDispatchEngine {
           }
         }
       } else if (item.fileType === 'image') {
+        console.log(`[DispatchEngine] Attempting Image send for "${item.title}"...`);
         mediaRes = await this.provider.sendImage({ toE164, mediaUrl, caption: item.title, dispatchId: templateRes.dispatchId });
         deliveryType = 'Image';
+        console.log(`[DispatchEngine] Meta Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (code: ${mediaRes.code || 'N/A'})`);
         if (mediaRes.success) {
           deliveredViaDocumentCount++;
           options.onProgress?.({
@@ -900,8 +921,10 @@ export class WhatsAppDispatchEngine {
           });
         }
       } else if (item.fileType === 'video') {
+        console.log(`[DispatchEngine] Attempting Video send for "${item.title}"...`);
         mediaRes = await this.provider.sendVideo({ toE164, mediaUrl, caption: item.title, dispatchId: templateRes.dispatchId });
         deliveryType = 'Video';
+        console.log(`[DispatchEngine] Meta Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (code: ${mediaRes.code || 'N/A'})`);
         if (mediaRes.success) {
           deliveredViaDocumentCount++;
           options.onProgress?.({
@@ -917,6 +940,7 @@ export class WhatsAppDispatchEngine {
           });
         }
       } else {
+        console.log(`[DispatchEngine] Attempting Raw Document for "${item.title}"...`);
         mediaRes = await this.provider.sendDocument({
           toE164,
           mediaUrl,
@@ -925,6 +949,7 @@ export class WhatsAppDispatchEngine {
           dispatchId: templateRes.dispatchId
         });
         deliveryType = 'Raw Document';
+        console.log(`[DispatchEngine] Meta Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (code: ${mediaRes.code || 'N/A'})`);
         if (mediaRes.success) {
           deliveredViaDocumentCount++;
           options.onProgress?.({
@@ -939,6 +964,8 @@ export class WhatsAppDispatchEngine {
             estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
           });
         } else if (typeof this.provider.sendTemplate === 'function') {
+          console.log(`[DispatchEngine] Utility Fallback Triggered = true`);
+          console.log(`[DispatchEngine] Sending Utility Template for "${item.title}"...`);
           mediaRes = await this.provider.sendTemplate({
             toE164,
             studentName: options.studentName.trim(),
@@ -948,6 +975,7 @@ export class WhatsAppDispatchEngine {
             templateCategory: 'utility',
             dispatchId: options.dispatchId
           });
+          console.log(`[DispatchEngine] Utility Template ${mediaRes.success ? 'Success' : 'Failure'}: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (wamid: ${mediaRes.messageId || 'N/A'})`);
           if (mediaRes.success) {
             deliveryType = 'Utility Template Fallback';
             deliveredViaUtilityCount++;
@@ -965,6 +993,8 @@ export class WhatsAppDispatchEngine {
           }
         }
       }
+
+      console.log(`[DispatchEngine] Continuing Queue...`);
 
       if (mediaRes.success) {
         deliveredMediaCount++;
@@ -1010,17 +1040,6 @@ export class WhatsAppDispatchEngine {
     console.log(`========================================\n`);
 
     // Step 6: Record Share Event & Audit Logging via shareService
-    options.onProgress?.({
-      state: 'recording_history',
-      event: 'AUDIT_COMPLETE',
-      progressPercent: 98,
-      totalMediaCount: totalMaterials,
-      currentMediaIndex: totalMaterials,
-      message: 'Finalizing dispatch...',
-      description: 'Writing audit logs and updating history.',
-      estimatedRemainingSec: 1
-    });
-
     const materialTitles = options.selectedMaterials.map(m => m.title);
     await shareService.recordShareEvent({
       phone: options.recipientPhone,
@@ -1030,16 +1049,44 @@ export class WhatsAppDispatchEngine {
       materials: materialTitles
     });
 
-    options.onProgress?.({
-      state: 'completed',
-      event: 'DISPATCH_COMPLETE',
-      progressPercent: 100,
-      totalMediaCount: totalMaterials,
-      currentMediaIndex: totalMaterials,
-      message: 'Successfully Delivered',
-      description: `${deliveredMediaCount} materials successfully sent.`,
-      estimatedRemainingSec: 0
-    });
+    if (failedMediaCount === 0) {
+      options.onProgress?.({
+        state: 'recording_history',
+        event: 'AUDIT_COMPLETE',
+        progressPercent: 98,
+        totalMediaCount: totalMaterials,
+        currentMediaIndex: totalMaterials,
+        message: 'Finalizing dispatch...',
+        description: 'Writing audit logs and updating history.',
+        estimatedRemainingSec: 1
+      });
+
+      options.onProgress?.({
+        state: 'completed',
+        event: 'DISPATCH_COMPLETE',
+        progressPercent: 100,
+        totalMediaCount: totalMaterials,
+        currentMediaIndex: totalMaterials,
+        message: 'Successfully Delivered',
+        description: `${deliveredMediaCount} materials successfully sent.`,
+        estimatedRemainingSec: 0
+      });
+    } else {
+      const firstFailed = mediaResults.find(m => !m.success);
+      options.onProgress?.({
+        state: 'failed',
+        event: 'DISPATCH_FAILED',
+        progressPercent: 50,
+        totalMediaCount: totalMaterials,
+        currentMediaIndex: 1,
+        currentMediaTitle: firstFailed?.title || 'Material',
+        failedMediaTitle: firstFailed?.title || 'Material',
+        message: 'Dispatch Failed',
+        description: `Failed while sending: ${firstFailed?.title || 'Material'}`,
+        friendlyStatus: firstFailed?.error || `Failed while sending: ${firstFailed?.title}`,
+        estimatedRemainingSec: 0
+      });
+    }
 
     return {
       success: failedMediaCount === 0,
