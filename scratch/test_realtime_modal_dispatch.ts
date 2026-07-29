@@ -1,5 +1,5 @@
-import { WhatsAppDispatchEngine, type IWhatsAppProvider, type SendTextOptions, type SendTemplateOptions, type SendMediaOptions, type WhatsAppProviderResponse, type DispatchProgressPayload } from '../src/services/whatsappDispatchEngine.js';
-import type { MediaItem } from '../src/data/shareData.js';
+import { WhatsAppDispatchEngine, type IWhatsAppProvider, type SendTextOptions, type SendTemplateOptions, type SendMediaOptions, type WhatsAppProviderResponse, type DispatchProgressPayload } from '../src/services/whatsappDispatchEngine';
+import type { MediaItem } from '../src/data/shareData';
 
 class MockRealTimeProvider implements IWhatsAppProvider {
   public providerName = 'Mock Real-Time Provider';
@@ -13,7 +13,7 @@ class MockRealTimeProvider implements IWhatsAppProvider {
   }
 
   public async sendDocument(options: SendMediaOptions): Promise<WhatsAppProviderResponse> {
-    if (options.filename.includes('CustomerWindowFail')) {
+    if (options.filename?.includes('CustomerWindowFail')) {
       return {
         success: false,
         error: 'Re-engagement message - customer care window is not active.',

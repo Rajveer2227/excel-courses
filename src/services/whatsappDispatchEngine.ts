@@ -411,6 +411,7 @@ export interface DispatchOptions {
   dispatchId?: string;
   headerMediaUrl?: string;         // Optional explicit PDF header URL
   headerMediaFilename?: string;    // Optional explicit PDF header filename
+  preferRawDocument?: boolean;     // Set to true for active 24-hour window recipients to attempt raw documents
   onProgress?: (progress: DispatchProgressPayload) => void;
 }
 
@@ -799,107 +800,54 @@ export class WhatsAppDispatchEngine {
       let deliveryType: 'Marketing Template' | 'Raw Document' | 'Utility Template Fallback' | 'Image' | 'Video' = 'Raw Document';
 
       if (isPdf) {
-        console.log(`[DispatchEngine] Attempting Raw Document for "${item.title}"...`);
-        mediaRes = await this.provider.sendDocument({
-          toE164,
-          mediaUrl,
-          filename: item.title,
-          caption: undefined,
-          dispatchId: templateRes.dispatchId
+        const currentCourseName = item.title.replace(/\.pdf$/i, '').trim();
+        console.log(`[DispatchEngine] Sending Utility Template for Course #${i + 2} ("${item.title}")...`);
+
+        options.onProgress?.({
+          state: 'sending_media',
+          event: 'UTILITY_TEMPLATE_SENT',
+          progressPercent: currentPercent + Math.round((nextPercent - currentPercent) / 2),
+          currentMediaIndex: displayIdx,
+          totalMediaCount: totalMaterials,
+          currentMediaTitle: item.title,
+          message: `Sending Utility Template...`,
+          description: `Delivering course ${displayIdx} of ${totalMaterials} via approved Utility Template.`,
+          estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i, false)
         });
-        deliveryType = 'Raw Document';
 
-        console.log(`[DispatchEngine] Meta Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (code: ${mediaRes.code || 'N/A'}, error: ${mediaRes.error || 'None'})`);
-        console.log(`[DispatchEngine] Meta Error Code: ${mediaRes.code || 'N/A'}`);
-
-        if (mediaRes.success) {
-          deliveredViaDocumentCount++;
-          console.log(`✓ Response PDF #${i + 2}: Delivered via Raw Document! (wamid: ${mediaRes.messageId})`);
-          console.log(`[DispatchEngine] Utility Fallback Triggered = false`);
-          options.onProgress?.({
-            state: 'sending_media',
-            event: 'DOCUMENT_SENT',
-            progressPercent: nextPercent,
-            currentMediaIndex: displayIdx,
-            totalMediaCount: totalMaterials,
-            currentMediaTitle: item.title,
-            message: `Delivered ${item.title}`,
-            description: `Material ${displayIdx} of ${totalMaterials} delivered.`,
-            estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
+        if (typeof this.provider.sendTemplate === 'function') {
+          mediaRes = await this.provider.sendTemplate({
+            toE164,
+            studentName: options.studentName.trim(),
+            courseTitle: currentCourseName,
+            headerMediaUrl: mediaUrl,
+            headerMediaFilename: item.title,
+            templateCategory: 'utility',
+            dispatchId: options.dispatchId
           });
-        } else {
-          // Detect ANY Meta error on raw document send to trigger Utility Template fallback
-          const errCodeStr = String(mediaRes.code || '');
-          const errMsgStr = String(mediaRes.error || '').toLowerCase();
-          const detailsStr = JSON.stringify(mediaRes.details || {}).toLowerCase();
 
-          const isCustomerWindowError =
-            !mediaRes.success ||
-            errCodeStr.includes('131047') ||
-            errCodeStr.includes('131026') ||
-            errCodeStr.includes('131051') ||
-            errCodeStr.includes('131000') ||
-            errCodeStr.includes('100') ||
-            errMsgStr.includes('re-engagement') ||
-            errMsgStr.includes('customer care') ||
-            errMsgStr.includes('customer service') ||
-            errMsgStr.includes('window') ||
-            detailsStr.includes('131047') ||
-            detailsStr.includes('131026') ||
-            detailsStr.includes('window') ||
-            mediaRes.statusCode === 400 ||
-            mediaRes.statusCode === 403;
+          console.log(`[DispatchEngine] Utility Template Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (wamid: ${mediaRes.messageId || 'N/A'}${mediaRes.error ? `, error: ${mediaRes.error}` : ''})`);
 
-          console.log(`[DispatchEngine] Utility Fallback Triggered = ${isCustomerWindowError}`);
-
-          if (isCustomerWindowError && typeof this.provider.sendTemplate === 'function') {
-            const currentCourseName = item.title.replace(/\.pdf$/i, '').trim();
-            console.log(`[DispatchEngine] Sending Utility Template for "${item.title}"...`);
-
+          if (mediaRes.success) {
+            console.log(`✓ [DispatchEngine] Utility Template successfully delivered PDF #${i + 2} (${item.title})! (wamid: ${mediaRes.messageId})`);
+            deliveryType = 'Utility Template Fallback';
+            deliveredViaUtilityCount++;
             options.onProgress?.({
               state: 'sending_media',
-              event: 'UTILITY_FALLBACK',
-              progressPercent: currentPercent + Math.round((nextPercent - currentPercent) / 2),
+              event: 'UTILITY_TEMPLATE_SENT',
+              progressPercent: nextPercent,
               currentMediaIndex: displayIdx,
               totalMediaCount: totalMaterials,
               currentMediaTitle: item.title,
-              message: 'Customer service window closed',
-              description: 'Switching to approved Utility Template...',
-              friendlyStatus: 'Customer service window closed. Switching to approved Utility Template...',
-              estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i, false)
+              message: `Delivered ${item.title}`,
+              description: `Course ${displayIdx} of ${totalMaterials} delivered via Utility Template.`,
+              estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
             });
-
-            mediaRes = await this.provider.sendTemplate({
-              toE164,
-              studentName: options.studentName.trim(),
-              courseTitle: currentCourseName,
-              headerMediaUrl: mediaUrl,
-              headerMediaFilename: item.title,
-              templateCategory: 'utility',
-              dispatchId: options.dispatchId
-            });
-
-            console.log(`[DispatchEngine] Utility Template ${mediaRes.success ? 'Success' : 'Failure'}: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (wamid: ${mediaRes.messageId || 'N/A'}, error: ${mediaRes.error || 'None'})`);
-
-            if (mediaRes.success) {
-              console.log(`✓ [DispatchEngine] Utility Template fallback successfully delivered PDF #${i + 2} (${item.title})! (wamid: ${mediaRes.messageId})`);
-              deliveryType = 'Utility Template Fallback';
-              deliveredViaUtilityCount++;
-              options.onProgress?.({
-                state: 'sending_media',
-                event: 'UTILITY_TEMPLATE_SENT',
-                progressPercent: nextPercent,
-                currentMediaIndex: displayIdx,
-                totalMediaCount: totalMaterials,
-                currentMediaTitle: item.title,
-                message: 'Sending Utility Template...',
-                description: `Material ${displayIdx} of ${totalMaterials} delivered via Utility Template.`,
-                estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
-              });
-            } else {
-              console.error(`❌ [DispatchEngine] Utility Template fallback failed for PDF #${i + 2} (${item.title}): ${mediaRes.error}`);
-            }
+          } else {
+            console.error(`❌ [DispatchEngine] Utility Template delivery failed for PDF #${i + 2} (${item.title}): ${mediaRes.error}`);
           }
+        } else {
+          mediaRes = { success: false, error: 'Provider does not support sendTemplate' };
         }
       } else if (item.fileType === 'image') {
         console.log(`[DispatchEngine] Attempting Image send for "${item.title}"...`);
@@ -939,62 +887,38 @@ export class WhatsAppDispatchEngine {
             estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
           });
         }
-      } else {
-        console.log(`[DispatchEngine] Attempting Raw Document for "${item.title}"...`);
-        mediaRes = await this.provider.sendDocument({
+      } else if (typeof this.provider.sendTemplate === 'function') {
+        console.log(`[DispatchEngine] Sending Utility Template for "${item.title}"...`);
+        mediaRes = await this.provider.sendTemplate({
           toE164,
-          mediaUrl,
-          filename: item.title,
-          caption: undefined,
-          dispatchId: templateRes.dispatchId
+          studentName: options.studentName.trim(),
+          courseTitle: item.title.replace(/\.pdf$/i, '').trim(),
+          headerMediaUrl: mediaUrl,
+          headerMediaFilename: item.title,
+          templateCategory: 'utility',
+          dispatchId: options.dispatchId
         });
-        deliveryType = 'Raw Document';
-        console.log(`[DispatchEngine] Meta Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (code: ${mediaRes.code || 'N/A'})`);
+        console.log(`[DispatchEngine] Utility Template Response: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (wamid: ${mediaRes.messageId || 'N/A'})`);
         if (mediaRes.success) {
-          deliveredViaDocumentCount++;
+          deliveryType = 'Utility Template Fallback';
+          deliveredViaUtilityCount++;
           options.onProgress?.({
             state: 'sending_media',
-            event: 'DOCUMENT_SENT',
+            event: 'UTILITY_TEMPLATE_SENT',
             progressPercent: nextPercent,
             currentMediaIndex: displayIdx,
             totalMediaCount: totalMaterials,
             currentMediaTitle: item.title,
-            message: `Delivered ${item.title}`,
-            description: `Material ${displayIdx} of ${totalMaterials} delivered.`,
+            message: 'Sending Utility Template...',
+            description: `Material ${displayIdx} of ${totalMaterials} delivered via Utility Template.`,
             estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
           });
-        } else if (typeof this.provider.sendTemplate === 'function') {
-          console.log(`[DispatchEngine] Utility Fallback Triggered = true`);
-          console.log(`[DispatchEngine] Sending Utility Template for "${item.title}"...`);
-          mediaRes = await this.provider.sendTemplate({
-            toE164,
-            studentName: options.studentName.trim(),
-            courseTitle: item.title.replace(/\.pdf$/i, '').trim(),
-            headerMediaUrl: mediaUrl,
-            headerMediaFilename: item.title,
-            templateCategory: 'utility',
-            dispatchId: options.dispatchId
-          });
-          console.log(`[DispatchEngine] Utility Template ${mediaRes.success ? 'Success' : 'Failure'}: HTTP ${mediaRes.statusCode || (mediaRes.success ? 200 : 400)} (wamid: ${mediaRes.messageId || 'N/A'})`);
-          if (mediaRes.success) {
-            deliveryType = 'Utility Template Fallback';
-            deliveredViaUtilityCount++;
-            options.onProgress?.({
-              state: 'sending_media',
-              event: 'UTILITY_TEMPLATE_SENT',
-              progressPercent: nextPercent,
-              currentMediaIndex: displayIdx,
-              totalMediaCount: totalMaterials,
-              currentMediaTitle: item.title,
-              message: 'Sending Utility Template...',
-              description: `Material ${displayIdx} of ${totalMaterials} delivered via Utility Template.`,
-              estimatedRemainingSec: calcEstRemaining(totalRemainingCount - i - 1, false)
-            });
-          }
         }
+      } else {
+        mediaRes = { success: false, error: 'Provider does not support sendTemplate' };
       }
 
-      console.log(`[DispatchEngine] Continuing Queue...`);
+      console.log(`[DispatchEngine] Queue Continued`);
 
       if (mediaRes.success) {
         deliveredMediaCount++;
